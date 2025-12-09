@@ -2,12 +2,42 @@
 Interactive Workflow Builder GUI for Game Automation
 Build, test, and export game automation workflows visually
 
-Features:
-- Game control and screenshot capture
-- Interactive bounding box selection
-- Visual workflow step management
-- Action definition and testing
-- YAML export for automation
+Detailed Changes Summary:
+    New Classes Added:
+        ConfigManager - Handles persistent configuration storage
+        RecentFilesDialog - UI for selecting from recent workflow files
+    New Features:
+        Configuration Management:
+        Persistent storage of connection settings (SUT, Omniparser, Gemma IPs/ports)
+        Default values for game metadata fields
+        Window geometry and state persistence
+        Vision model selection persistence
+    Recent Files System:
+        Track up to 10 recently opened workflow files
+        Quick access via Ctrl+R or File menu
+        Automatic cleanup of non-existent files
+        Clear recent files option
+    Keyboard Shortcuts:
+        Ctrl+N: New workflow
+        Ctrl+O: Open workflow
+        Ctrl+R: Recent files
+        Ctrl+S: Save workflow
+        Ctrl+Shift+S: Save as
+    Enhanced File Operations:
+        Save/Save As distinction
+        Current file tracking
+        Window title updates with filename
+        Configuration import/export
+    Improved UX:
+        Window state restoration on startup
+        Proper application shutdown handling
+        Persistent connection settings
+        Default metadata values
+    Technical Improvements:
+        Better separation of concerns with ConfigManager
+        Robust configuration merging for backward compatibility
+        Proper error handling for configuration operations
+        Clean window close event handling
 """
 
 import tkinter as tk
