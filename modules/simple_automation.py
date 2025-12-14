@@ -327,6 +327,13 @@ class SimpleAutomation:
         elif action_type == "wait":
             return self._handle_wait_action(action_config)
         
+        # === HOLD ACTIONS ===
+        elif action_type == "hold_click":
+            return self._handle_hold_click_action(action_config, target_element)
+        
+        elif action_type == "hold_key":
+            return self._handle_hold_key_action(action_config)
+        
         # === CONDITIONAL ACTIONS ===
         elif action_type == "conditional":
             return self._handle_conditional_action(action_config, target_element)
@@ -626,6 +633,61 @@ class SimpleAutomation:
             self._interruptible_wait(duration)
         
         return True
+    
+    def _handle_hold_click_action(self, action_config: Dict[str, Any], target_element: Optional[BoundingBox]) -> bool:
+        """Handle hold click actions - click and hold for a duration."""
+        button = action_config.get("button", "left").lower()
+        duration = action_config.get("duration", 2.0)
+        move_duration = action_config.get("move_duration", 0.3)
+        
+        # Get coordinates from target element or action config
+        if target_element:
+            x = target_element.x + target_element.width // 2
+            y = target_element.y + target_element.height // 2
+        elif "x" in action_config and "y" in action_config:
+            x = action_config["x"]
+            y = action_config["y"]
+        else:
+            logger.error("Hold click requires target element or x/y coordinates")
+            return False
+        
+        logger.info(f"Hold clicking {button} at ({x}, {y}) for {duration}s")
+        
+        try:
+            self.network.send_action({
+                "type": "hold_click",
+                "x": x,
+                "y": y,
+                "button": button,
+                "duration": duration,
+                "move_duration": move_duration
+            })
+            return True
+        except Exception as e:
+            logger.error(f"Hold click failed: {e}")
+            return False
+    
+    def _handle_hold_key_action(self, action_config: Dict[str, Any]) -> bool:
+        """Handle hold key actions - press and hold a key for a duration."""
+        key = action_config.get("key", "")
+        duration = action_config.get("duration", 2.0)
+        
+        if not key:
+            logger.error("Hold key requires a key to be specified")
+            return False
+        
+        logger.info(f"Holding key '{key}' for {duration}s")
+        
+        try:
+            self.network.send_action({
+                "type": "hold_key",
+                "key": key,
+                "duration": duration
+            })
+            return True
+        except Exception as e:
+            logger.error(f"Hold key failed: {e}")
+            return False
     
     def _handle_conditional_action(self, action_config: Dict[str, Any], target_element: Optional[BoundingBox]) -> bool:
         """Handle conditional actions."""

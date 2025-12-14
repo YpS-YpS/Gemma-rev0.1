@@ -291,7 +291,7 @@ class ActionDefinitionDialog(tk.Toplevel):
     def __init__(self, parent, bbox: Optional[BoundingBox] = None):
         super().__init__(parent)
         self.title("Define Action")
-        self.geometry("640x1050")
+        self.geometry("750x1100")
         self.result = None
         self.bbox = bbox
         self.verify_elements = []  # List of elements to verify
@@ -347,12 +347,14 @@ class ActionDefinitionDialog(tk.Toplevel):
             [
                 ("⌨️ Keyboard Actions", None, "header"),
                 ("Press Key", "key", "Press single key (Enter, Esc, etc.)"),
+                ("Hold Key", "hold_key", "Press and HOLD key for duration"),
                 ("Key Combo", "hotkey", "Press keys together (Ctrl+S)"),
                 ("Type Text", "text", "Type text into field")
             ],
             # Column 3: Other actions
             [
                 ("🖱️ Other Actions", None, "header"),
+                ("Hold Click", "hold_click", "Click and HOLD for duration"),
                 ("Scroll", "scroll", "Scroll up or down"),
                 ("Wait", "wait", "Wait for specified time")
             ]
@@ -479,6 +481,29 @@ class ActionDefinitionDialog(tk.Toplevel):
         ttk.Label(self.wait_frame, text="How many seconds to pause",
                  font=('TkDefaultFont', 9), foreground="gray").grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=(5,0))
 
+        # Hold Key options
+        self.hold_key_frame = ttk.LabelFrame(scrollable_frame, text="Hold Key - Press and hold for duration", padding=10)
+        ttk.Label(self.hold_key_frame, text="Key Name:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        self.hold_key_var = tk.StringVar(value="enter")
+        ttk.Entry(self.hold_key_frame, textvariable=self.hold_key_var, width=25).grid(row=0, column=1, sticky=tk.W, pady=5)
+        ttk.Label(self.hold_key_frame, text="Hold Duration (seconds):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        self.hold_key_duration_var = tk.StringVar(value="2")
+        ttk.Entry(self.hold_key_frame, textvariable=self.hold_key_duration_var, width=10).grid(row=1, column=1, sticky=tk.W, pady=5)
+        ttk.Label(self.hold_key_frame, text="Common: enter, escape, space, f1-f12. For benchmark buttons, try 2-5 seconds.",
+                 font=('TkDefaultFont', 9), foreground="gray").grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=(5,0))
+
+        # Hold Click options
+        self.hold_click_frame = ttk.LabelFrame(scrollable_frame, text="Hold Click - Click and hold for duration", padding=10)
+        ttk.Label(self.hold_click_frame, text="Mouse Button:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        self.hold_click_button_var = tk.StringVar(value="left")
+        ttk.Combobox(self.hold_click_frame, textvariable=self.hold_click_button_var,
+                    values=["left", "right", "middle"], state="readonly", width=12).grid(row=0, column=1, sticky=tk.W, pady=5)
+        ttk.Label(self.hold_click_frame, text="Hold Duration (seconds):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        self.hold_click_duration_var = tk.StringVar(value="2")
+        ttk.Entry(self.hold_click_frame, textvariable=self.hold_click_duration_var, width=10).grid(row=1, column=1, sticky=tk.W, pady=5)
+        ttk.Label(self.hold_click_frame, text="Click coordinates will use selected element or bbox center",
+                 font=('TkDefaultFont', 9), foreground="gray").grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=(5,0))
+
         # === VERIFY SUCCESS ===
         self.verify_frame = ttk.LabelFrame(scrollable_frame, text="Verify Success (Optional) - Check if action worked", padding=10)
         self.verify_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -588,6 +613,8 @@ class ActionDefinitionDialog(tk.Toplevel):
         self.drag_frame.pack_forget()
         self.scroll_frame.pack_forget()
         self.wait_frame.pack_forget()
+        self.hold_key_frame.pack_forget()
+        self.hold_click_frame.pack_forget()
 
         # Show relevant frames
         if action == "find_and_click":
@@ -611,6 +638,11 @@ class ActionDefinitionDialog(tk.Toplevel):
             self.scroll_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
         elif action == "wait":
             self.wait_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
+        elif action == "hold_key":
+            self.hold_key_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
+        elif action == "hold_click":
+            self.element_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
+            self.hold_click_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
 
     def on_ok(self):
         """Build result and close."""
@@ -693,6 +725,38 @@ class ActionDefinitionDialog(tk.Toplevel):
 
                 self.result["action_config"] = {
                     "type": "wait",
+                    "duration": duration
+                }
+            elif action == "hold_key":
+                # Hold a key for specified duration
+                key = self.hold_key_var.get().strip()
+                duration_value = self.hold_key_duration_var.get().strip()
+                try:
+                    duration = float(duration_value) if duration_value else 2.0
+                except ValueError:
+                    duration = 2.0
+                
+                self.result["action_config"] = {
+                    "type": "hold_key",
+                    "key": key,
+                    "duration": duration
+                }
+            elif action == "hold_click":
+                # Hold click at element position for specified duration
+                self.result["element_type"] = self.type_var.get()
+                self.result["text"] = self.text_var.get()
+                self.result["text_match"] = self.match_var.get()
+                
+                button = self.hold_click_button_var.get()
+                duration_value = self.hold_click_duration_var.get().strip()
+                try:
+                    duration = float(duration_value) if duration_value else 2.0
+                except ValueError:
+                    duration = 2.0
+                
+                self.result["action_config"] = {
+                    "type": "hold_click",
+                    "button": button,
                     "duration": duration
                 }
 
@@ -1025,7 +1089,7 @@ class WorkflowBuilderGUI:
         # Test/Kill button (starts as "▶ Test")
         self.game_running = False
         self.test_kill_btn = tk.Button(
-            game_path_frame, text="▶ Test", width=6, 
+            game_path_frame, text="▶ Launch Game", width=12, 
             command=self.toggle_game_test,
             bg="#4CAF50", fg="white", font=('TkDefaultFont', 10, 'bold')
         )
@@ -1192,27 +1256,70 @@ class WorkflowBuilderGUI:
             
             try:
                 self.status_text.set("Launching game...")
+                # Immediately show waiting state on button
+                self.test_kill_btn.config(text="⏳ Waiting...", bg="#FFC107")  # Yellow/amber for waiting
                 self.root.update()
+                
+                # Get startup wait from metadata (default 30 seconds for slow games)
+                startup_wait = 30
+                process_id = self.process_id.get()
                 
                 # Launch game via SUT
                 response = self.network.session.post(
                     f"{self.network.base_url}/launch",
-                    json={"path": game_path, "process_id": self.process_id.get()},
-                    timeout=90
+                    json={
+                        "path": game_path, 
+                        "process_id": process_id,
+                        "startup_wait": startup_wait
+                    },
+                    timeout=120  # Increased timeout for slow launches
                 )
                 result = response.json()
                 
-                if result.get("status") == "success":
+                status = result.get("status", "unknown")
+                
+                if status == "success":
+                    # Full success - process found and foreground confirmed
                     self.game_running = True
-                    self.test_kill_btn.config(text="■ Kill", bg="#f44336")  # Red
-                    process_name = self.process_id.get() or os.path.basename(game_path)
-                    self.status_text.set(f"Game launched! Process: {process_name}")
+                    self.test_kill_btn.config(text="■ Kill Game", bg="#f44336")  # Red
+                    process_name = process_id or os.path.basename(game_path)
+                    pid = result.get("game_process_pid", "?")
+                    self.status_text.set(f"Game running! PID: {pid}")
+                    
+                elif status == "warning":
+                    # Partial success - game launched but process detection had issues
+                    warning_msg = result.get("warning", "Process detection issue")
+                    self.status_text.set(f"Launched (warning: {warning_msg[:40]}...)")
+                    
+                    # Still set as running - user can try to kill or wait for process
+                    self.game_running = True
+                    self.test_kill_btn.config(text="■ Kill Game", bg="#ff9800")  # Orange for warning
+                    
+                    # Try to detect process with retry if we have a process_id
+                    if process_id:
+                        self._retry_process_detection(process_id, max_retries=5, interval=3)
+                    
                 else:
-                    messagebox.showerror("Launch Error", result.get("error", "Unknown error"))
+                    # Real error
+                    error_msg = result.get("error", "Unknown error")
+                    self.status_text.set(f"Launch failed: {error_msg[:50]}")
+                    messagebox.showerror("Launch Error", f"Failed to launch game:\n{error_msg}")
                     
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to launch: {e}")
-                self.status_text.set("Launch failed")
+                error_str = str(e)
+                # Check for timeout specifically
+                if "timeout" in error_str.lower() or "timed out" in error_str.lower():
+                    self.status_text.set("Launch timeout - game may still be starting")
+                    # Offer to still mark as running
+                    if messagebox.askyesno("Timeout", 
+                        "Launch request timed out.\n\n"
+                        "The game may still be starting.\n"
+                        "Mark as running anyway?"):
+                        self.game_running = True
+                        self.test_kill_btn.config(text="■ Kill Game", bg="#ff9800")  # Orange
+                else:
+                    messagebox.showerror("Error", f"Failed to launch: {e}")
+                    self.status_text.set("Launch failed")
         else:
             # KILL mode - use existing /action with terminate_game
             try:
@@ -1229,10 +1336,46 @@ class WorkflowBuilderGUI:
                 
                 # Reset button
                 self.game_running = False
-                self.test_kill_btn.config(text="▶ Test", bg="#4CAF50")  # Green
+                self.test_kill_btn.config(text="▶ Launch Game", bg="#4CAF50")  # Green
                     
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to kill: {e}")
+    
+    def _retry_process_detection(self, process_name, max_retries=5, interval=3):
+        """Retry process detection in the background with status updates."""
+        import threading
+        
+        def _detect_loop():
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self.status_text.set(f"Detecting process... ({attempt}/{max_retries})")
+                    self.root.update()
+                    
+                    response = self.network.session.post(
+                        f"{self.network.base_url}/check_process",
+                        json={"process_name": process_name},
+                        timeout=5
+                    )
+                    result = response.json()
+                    
+                    if result.get("running"):
+                        pid = result.get("pid", "?")
+                        self.status_text.set(f"Process found! PID: {pid}")
+                        self.test_kill_btn.config(bg="#f44336")  # Red - confirmed running, ready to kill
+                        return
+                    
+                    time.sleep(interval)
+                    
+                except Exception as e:
+                    logger.warning(f"Process detection attempt {attempt} failed: {e}")
+                    time.sleep(interval)
+            
+            # Max retries reached
+            self.status_text.set(f"Process '{process_name}' not detected (may still be running)")
+        
+        # Run in background thread to not block UI
+        thread = threading.Thread(target=_detect_loop, daemon=True)
+        thread.start()
     
     def _check_game_process(self):
         """Check if game process is still running."""
@@ -1256,7 +1399,7 @@ class WorkflowBuilderGUI:
             else:
                 # Process exited
                 self.game_running = False
-                self.test_kill_btn.config(text="▶ Test", bg="#4CAF50")
+                self.test_kill_btn.config(text="▶ Launch Game", bg="#4CAF50")
                 self.status_text.set("Game exited")
         except Exception as e:
             logger.warning(f"Process check failed: {e}")
@@ -1421,7 +1564,7 @@ class WorkflowBuilderGUI:
                 step.move_duration = dialog.result.get("move_duration", 0.3)
 
             # Handle actions that need find block
-            elif step.action_type in ["right_click", "double_click", "middle_click", "text", "drag", "key", "hotkey"]:
+            elif step.action_type in ["right_click", "double_click", "middle_click", "text", "drag", "key", "hotkey", "hold_click"]:
                 step.element_type = dialog.result["element_type"]
                 step.text = dialog.result["text"]
                 step.text_match = dialog.result["text_match"]
@@ -1717,6 +1860,25 @@ class WorkflowBuilderGUI:
                 self.network.send_action(action)
                 self.status_text.set(f"Tested step {step.step_number}: Click at ({x}, {y})")
                 messagebox.showinfo("Success", f"Action executed on SUT at ({x}, {y})!")
+
+            # Handle hold_click - needs coordinates like find_and_click
+            elif step.action_type == "hold_click" and step.action_config:
+                if step.selected_bbox:
+                    bbox = step.selected_bbox
+                    x = bbox.x + bbox.width // 2
+                    y = bbox.y + bbox.height // 2
+                else:
+                    messagebox.showwarning("Warning", "Hold Click requires a selected element! Please edit the step and select a target.")
+                    return
+                
+                # Build action with coordinates
+                action = step.action_config.copy()
+                action["x"] = x
+                action["y"] = y
+                
+                self.network.send_action(action)
+                self.status_text.set(f"Tested step {step.step_number}: Hold click at ({x}, {y})")
+                messagebox.showinfo("Success", f"Hold click executed at ({x}, {y})!")
 
             # Handle other actions with action_config
             elif step.action_config:

@@ -1,0 +1,106 @@
+metadata:
+  game_name: Red Dead Redemption 2
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2025-12-14 14:31:48'
+  path: C:\Program Files (x86)\Steam\steamapps\common\Red Dead Redemption 2\PlayRDR2.exe
+  process_id: RDR2.exe
+  process_name: RDR2.exe
+  benchmark_duration: 120
+  startup_wait: 100
+  resolution: 1920x1080
+  preset: High
+  graphics_api: DirectX 11
+steps:
+  1:
+    description: NAVIGATE TO SETTINGS
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: z
+    expected_delay: 5
+    timeout: 20
+  2:
+    description: NAVIGATE TO GRAPHICS SETTINGS
+    find:
+      type: any
+      text: GRAPHICS
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.2
+      click_delay: 0.3
+    expected_delay: 10
+    timeout: 20
+  3:
+    description: X LONG PRESS TO START BENCHMARK
+    find:
+      type: any
+      text: BENCHMARK
+      text_match: contains
+    action:
+      type: hold_click
+      button: left
+      duration: 5.0
+    expected_delay: 4
+    timeout: 20
+  4:
+    description: OK TO CONFIRM
+    find:
+      type: any
+      text: ALERT
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 4
+    timeout: 20
+  5:
+    description: WAIT FOR BENCHMARK TO COMPLETE
+    action:
+      type: wait
+      duration: 320
+    expected_delay: 4
+    timeout: 20
+  6:
+    description: EXIT BENCHMARK
+    find:
+      type: any
+      text: BENCHMARKING
+      text_match: contains
+    action:
+      type: key
+      key: escape
+    expected_delay: 4
+    timeout: 20
+  7:
+    description: QUIT GAME
+    find:
+      type: any
+      text: QUIT
+      text_match: contains
+    action:
+      type: key
+      key: escape
+    expected_delay: 7
+    timeout: 20
+  8:
+    description: CONFIRM EXIT GAME
+    find:
+      type: any
+      text: ALERT
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 4
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 4

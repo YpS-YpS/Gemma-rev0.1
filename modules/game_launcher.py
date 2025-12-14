@@ -38,8 +38,14 @@ class GameLauncher:
             RuntimeError: If the game fails to launch
         """
         try:
+            # Log launch parameters at debug level
+            logger.debug(f"Launch request - path: {game_path}, process_id: {process_id}, startup_wait: {startup_wait}")
+            
             # Send launch command to SUT with process tracking metadata
             response = self.network_manager.launch_game(game_path, process_id, startup_wait)
+            
+            # Log full response at debug level
+            logger.debug(f"SUT launch response: {response}")
 
             # Check response
             status = response.get("status")
@@ -49,16 +55,20 @@ class GameLauncher:
                 proc_pid = response.get("game_process_pid", "N/A")
                 fg_confirmed = response.get("foreground_confirmed", False)
                 launch_method = response.get("launch_method", "unknown")
+                subprocess_pid = response.get("subprocess_pid", "N/A")
+                subprocess_status = response.get("subprocess_status", "unknown")
                 
                 logger.info(f"Game launched successfully: {game_path}")
+                logger.debug(f"  - Subprocess PID: {subprocess_pid} ({subprocess_status})")
                 logger.info(f"  - Launch Method: {launch_method}")
                 logger.info(f"  - Process Detected: {proc_name} (PID: {proc_pid})")
                 logger.info(f"  - Foreground Confirmed: {fg_confirmed}")
                 return True
             elif status == "warning":
-                 # Treat warning as failure for strict foreground enforcement
+                 # Foreground is required for automation - treat warning as failure
+                 # The SUT already retries 3 times with 10s intervals
                  warning_msg = response.get("warning", "Unknown warning")
-                 logger.error(f"Game launch warning (treating as failure): {warning_msg}")
+                 logger.error(f"Game launch failed: {warning_msg}")
                  raise RuntimeError(f"Game launch failed: {warning_msg}")
             else:
                 error_msg = response.get("error", "Unknown error")

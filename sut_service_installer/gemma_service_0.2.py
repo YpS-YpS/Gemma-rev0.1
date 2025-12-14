@@ -1,6 +1,17 @@
 """
-Improved SUT Service - Enhanced reliability for gaming automation
-Uses Windows SendInput API for maximum compatibility with games
+KATANA SUT Service v0.2 - Enhanced Window Detection
+Uses pywinauto for robust wait('visible') and wait('ready') detection.
+Falls back to Win32 API if pywinauto unavailable.
+
+Author: SATYAJIT BHUYAN
+Email:  satyajit.bhuyan@intel.com
+Date:   14th December 2025
+
+v0.2 Changes:
+- Added pywinauto for reliable window ready detection
+- New wait_for_window_ready_pywinauto() function
+- Improved ensure_window_foreground() with configurable timeouts
+- Better handling of slow-loading games (RDR2, etc.)
 """
 
 import os
@@ -24,16 +35,33 @@ import re
 import glob
 import win32process
 
-# Configure logging
+# ============================================================================
+# v0.2 NEW: pywinauto for robust window detection
+# ============================================================================
+try:
+    from pywinauto import Application
+    from pywinauto.timings import TimeoutError as PywinautoTimeoutError
+    PYWINAUTO_AVAILABLE = True
+    logger_temp_msg = "pywinauto loaded successfully - using enhanced window detection"
+except ImportError:
+    PYWINAUTO_AVAILABLE = False
+    logger_temp_msg = "pywinauto not installed - using Win32 fallback for window detection"
+# ============================================================================
+
+# Configure logging with UTF-8 encoding to support Unicode characters
+import sys
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("improved_sut_service.log"),
-        logging.StreamHandler()
+        logging.FileHandler("improved_sut_service.log", encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)  # Use stdout for better encoding support
     ]
 )
 logger = logging.getLogger(__name__)
+
+# v0.2: Log pywinauto availability
+logger.info(f"[v0.2] {logger_temp_msg}")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -42,6 +70,9 @@ app = Flask(__name__)
 game_process = None
 game_lock = threading.Lock()
 current_game_process_name = None
+
+# v0.2: Launch cancellation support
+launch_cancel_flag = threading.Event()  # Set this to cancel ongoing launch
 
 # Disable PyAutoGUI failsafe
 pyautogui.FAILSAFE = False
@@ -687,17 +718,40 @@ class ImprovedInputController:
 input_controller = ImprovedInputController()
 
 # Process management functions
-def find_process_by_name(process_name):
-    """Find a running process by its name."""
+def find_process_by_name(process_name, exact_only=True):
+    """
+    Find a running process by its name.
+    
+    v0.2 FIX: Only accepts EXACT match by default to prevent finding 
+    launcher (PlayRDR2.exe) instead of game (RDR2.exe).
+    
+    Args:
+        process_name: Name of process to find (e.g., "RDR2.exe")
+        exact_only: If True (default), only exact matches are returned.
+                    If False, substring matches are also allowed.
+    """
     try:
         for proc in psutil.process_iter(['pid', 'name', 'exe']):
             try:
-                if (proc.info['name'] and process_name.lower() in proc.info['name'].lower()) or \
-                   (proc.info['exe'] and process_name.lower() in os.path.basename(proc.info['exe']).lower()):
-                    logger.info(f"Found process: {proc.info['name']} (PID: {proc.info['pid']})")
-                    return psutil.Process(proc.info['pid'])
+                proc_name = proc.info['name']
+                proc_exe = os.path.basename(proc.info['exe']) if proc.info['exe'] else None
+                
+                if exact_only:
+                    # EXACT match only (case-insensitive)
+                    if (proc_name and proc_name.lower() == process_name.lower()) or \
+                       (proc_exe and proc_exe.lower() == process_name.lower()):
+                        logger.info(f"[EXACT] Found process: {proc_name} (PID: {proc.info['pid']})")
+                        return psutil.Process(proc.info['pid'])
+                else:
+                    # Partial/substring match (legacy behavior)
+                    if (proc_name and process_name.lower() in proc_name.lower()) or \
+                       (proc_exe and process_name.lower() in proc_exe.lower()):
+                        logger.info(f"[PARTIAL] Found process: {proc_name} (PID: {proc.info['pid']})")
+                        return psutil.Process(proc.info['pid'])
+                        
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
+        
     except Exception as e:
         logger.error(f"Error searching for process {process_name}: {str(e)}")
     return None
@@ -1085,8 +1139,157 @@ def resolve_steam_app_path(app_id, target_process_name=''):
     
     return None, "No executable found in game directory"
 
+# ============================================================================
+# v0.2 NEW: Enhanced Window Detection with pywinauto
+# ============================================================================
+
+def wait_for_window_ready_pywinauto(pid, process_name=None, visible_timeout=60, ready_timeout=30):
+    """
+    v0.2 NEW: Wait for window to be visible AND ready using pywinauto.
+    
+    'ready' means the window's message queue is idle (fully loaded!).
+    This is much more reliable than just checking if window exists.
+    
+    Args:
+        pid: Process ID to wait for
+        process_name: Optional process name for fallback connection
+        visible_timeout: Max seconds to wait for window to become visible
+        ready_timeout: Max seconds to wait for window to become ready/idle
+    
+    Returns:
+        tuple: (success: bool, window_handle: int or None, window_title: str or None)
+    """
+    if not PYWINAUTO_AVAILABLE:
+        logger.debug("pywinauto not available, skipping wait_for_window_ready_pywinauto")
+        return False, None, None
+    
+    logger.info(f"[v0.2] Waiting for window ready state (PID: {pid})")
+    
+    try:
+        # Connect to the process using pywinauto
+        # Try 'uia' backend first (works with modern apps), fall back to 'win32'
+        app = None
+        for backend in ['uia', 'win32']:
+            try:
+                logger.debug(f"Trying pywinauto backend: {backend}")
+                app = Application(backend=backend).connect(process=pid, timeout=10)
+                logger.debug(f"Connected with backend: {backend}")
+                break
+            except Exception as e:
+                logger.debug(f"Backend {backend} failed: {e}")
+                continue
+        
+        if not app:
+            logger.warning(f"Could not connect pywinauto to PID {pid}")
+            return False, None, None
+        
+        # Get the top-level window
+        try:
+            main_window = app.top_window()
+            window_title = main_window.window_text()
+            logger.debug(f"Found top window: '{window_title}'")
+        except Exception as e:
+            logger.warning(f"Could not get top window: {e}")
+            return False, None, None
+        
+        # Phase 1: Wait for window to be VISIBLE
+        logger.info(f"[v0.2] Phase 1: Waiting up to {visible_timeout}s for window to be visible...")
+        try:
+            # v0.2 OPTIMIZED: Added retry_interval=2.0 to reduce CPU polling frequency
+            main_window.wait('visible', timeout=visible_timeout, retry_interval=2.0)
+            logger.info(f"[v0.2] [OK] Window is visible: '{window_title}'")
+        except PywinautoTimeoutError:
+            logger.warning(f"[v0.2] Window not visible after {visible_timeout}s")
+            return False, None, window_title
+        
+        # Phase 2: Wait for window to be READY (message queue idle)
+        # This is the KEY improvement - waits until the app is fully loaded
+        logger.info(f"[v0.2] Phase 2: Waiting up to {ready_timeout}s for window to be ready/idle...")
+        try:
+            # v0.2 OPTIMIZED: Added retry_interval=2.0 to reduce CPU polling frequency
+            main_window.wait('ready', timeout=ready_timeout, retry_interval=2.0)
+            logger.info(f"[v0.2] [OK] Window is ready (message queue idle): '{window_title}'")
+        except PywinautoTimeoutError:
+            logger.warning(f"[v0.2] Window not ready after {ready_timeout}s (may still work)")
+            # Continue anyway - window is at least visible
+        
+        # Get window handle for foreground operations
+        try:
+            hwnd = main_window.handle
+            logger.info(f"[v0.2] Window ready! HWND={hwnd}, Title='{window_title}'")
+            return True, hwnd, window_title
+        except Exception as e:
+            logger.warning(f"Could not get window handle: {e}")
+            return True, None, window_title
+            
+    except Exception as e:
+        logger.error(f"[v0.2] wait_for_window_ready_pywinauto failed: {e}")
+        return False, None, None
+
+
+def bring_to_foreground_pywinauto(pid):
+    """
+    v0.2 NEW: Use pywinauto's set_focus() which is more reliable than Win32 APIs.
+    
+    Returns:
+        bool: True if successfully brought to foreground
+    """
+    if not PYWINAUTO_AVAILABLE:
+        return False
+    
+    try:
+        for backend in ['uia', 'win32']:
+            try:
+                app = Application(backend=backend).connect(process=pid, timeout=5)
+                main_window = app.top_window()
+                
+                # pywinauto's set_focus() handles all the Win32 complexity internally
+                main_window.set_focus()
+                time.sleep(0.3)
+                
+                # Verify
+                if main_window.has_focus():
+                    logger.info(f"[v0.2] [OK] pywinauto.set_focus() succeeded")
+                    return True
+                    
+            except Exception as e:
+                logger.debug(f"pywinauto set_focus with {backend} failed: {e}")
+                continue
+                
+        return False
+        
+    except Exception as e:
+        logger.debug(f"bring_to_foreground_pywinauto failed: {e}")
+        return False
+
+
+def ensure_window_foreground_v2(pid, timeout=5, use_pywinauto=True):
+    """
+    v0.2 IMPROVED: Ensure window is in foreground using best available method.
+    
+    Tries pywinauto first (more reliable), falls back to Win32 API.
+    
+    Args:
+        pid: Process ID
+        timeout: Timeout for Win32 fallback method
+        use_pywinauto: If True, try pywinauto first
+    
+    Returns:
+        bool: True if window is confirmed in foreground
+    """
+    # Try pywinauto first if available
+    if use_pywinauto and PYWINAUTO_AVAILABLE:
+        logger.debug(f"[v0.2] Trying pywinauto set_focus for PID {pid}")
+        if bring_to_foreground_pywinauto(pid):
+            return True
+        logger.debug("[v0.2] pywinauto failed, falling back to Win32")
+    
+    # Fallback to original Win32 method
+    return ensure_window_foreground(pid, timeout)
+
+
 def ensure_window_foreground(pid, timeout=5):
-    """Ensure the main window of the process is in the foreground using robust methods."""
+    """Original Win32-based foreground method (used as fallback in v0.2)."""
     
     logger.debug(f"ensure_window_foreground called for PID {pid} with timeout={timeout}s")
     
@@ -1198,11 +1401,31 @@ def ensure_window_foreground(pid, timeout=5):
     logger.debug(f"ensure_window_foreground timed out after {timeout}s for PID {pid}")
     return False
 
+# ============================================================================
+# v0.2: Launch Cancellation Support
+# ============================================================================
+
+@app.route('/cancel_launch', methods=['POST'])
+def cancel_launch():
+    """
+    v0.2 NEW: Cancel an ongoing launch operation.
+    Call this when the user presses Stop in the GUI.
+    """
+    global launch_cancel_flag
+    logger.info("[v0.2] Received cancel_launch request - setting cancel flag")
+    launch_cancel_flag.set()
+    return jsonify({"status": "success", "message": "Launch cancellation requested"})
+
+# ============================================================================
+
 @app.route('/launch', methods=['POST'])
 def launch_game():
     """Launch a game with process tracking. Supports both exe paths and Steam app IDs."""
-    global game_process, current_game_process_name
+    global game_process, current_game_process_name, launch_cancel_flag
 
+    # v0.2: Clear cancel flag at start of new launch
+    launch_cancel_flag.clear()
+    
     try:
         data = request.json
         game_path = data.get('path', '')
@@ -1308,33 +1531,80 @@ def launch_game():
             
             logger.info(f"Waiting up to {max_wait_time}s for process '{current_game_process_name}' to appear...")
 
-            # Phase 1: Detect Process
+            # Phase 1: Detect Process (v0.2 OPTIMIZED: Uses Event.wait for efficient blocking)
             start_wait = time.time()
+            cancelled = False
             while time.time() - start_wait < max_wait_time:
+                # Check for process FIRST (before waiting)
                 actual_process = find_process_by_name(current_game_process_name)
                 if actual_process:
                     logger.info(f"Process found: {actual_process.name()} (PID: {actual_process.pid})")
                     break
-                time.sleep(1)
+                
+                # v0.2 OPTIMIZED: Use Event.wait() instead of sleep
+                # This blocks the thread efficiently (near-zero CPU) while also 
+                # checking for cancellation. Returns True if flag was set.
+                if launch_cancel_flag.wait(timeout=3):  # Poll every 3s instead of 1s
+                    logger.info("[v0.2] Launch cancelled during process detection")
+                    cancelled = True
+                    break
+            
+            # v0.2: Return immediately if cancelled
+            if cancelled:
+                return jsonify({"status": "cancelled", "message": "Launch cancelled by user"})
             
             if actual_process:
-                # Phase 2: Attempt Foreground with retries for slow games (e.g., RDR2)
-                logger.info("Attempting to bring process to foreground...")
-                foreground_confirmed = ensure_window_foreground(actual_process.pid, timeout=5)
+                # ============================================================
+                # v0.2 IMPROVED: Use pywinauto for reliable window detection
+                # ============================================================
                 
-                # Retry with longer waits for slow-loading games
+                # Phase 2a: Wait for window to be VISIBLE and READY using pywinauto
+                # This is the KEY improvement - waits until app is fully loaded
+                logger.info("[v0.2] Starting enhanced foreground detection...")
+                
+                window_ready, hwnd, window_title = wait_for_window_ready_pywinauto(
+                    actual_process.pid,
+                    process_name=current_game_process_name,
+                    visible_timeout=120,  # Wait up to 120s for window visible (slow games like RDR2)
+                    ready_timeout=30     # Wait up to 30s for window ready/idle
+                )
+                
+                if window_ready:
+                    logger.info(f"[v0.2] Window is ready, bringing to foreground...")
+                    # Use v0.2 foreground method (tries pywinauto first, then Win32)
+                    foreground_confirmed = ensure_window_foreground_v2(actual_process.pid, timeout=5)
+                else:
+                    logger.warning("[v0.2] pywinauto window detection failed, using legacy method")
+                    # Fallback to original method if pywinauto failed
+                    foreground_confirmed = ensure_window_foreground(actual_process.pid, timeout=5)
+                
+                # Retry with longer waits for slow-loading games (if still not confirmed)
                 if not foreground_confirmed:
                     max_retries = 5
                     retry_interval = 10  # seconds between retries
                     for attempt in range(1, max_retries + 1):
                         logger.warning(f"Foreground attempt failed. Retry {attempt}/{max_retries} in {retry_interval}s...")
-                        time.sleep(retry_interval)
+                        
+                        # v0.2 OPTIMIZED: Use Event.wait() for efficient blocking
+                        # Blocks thread (near-zero CPU) while waiting, automatically wakes if cancelled
+                        if launch_cancel_flag.wait(timeout=retry_interval):
+                            logger.info("[v0.2] Launch cancelled during retry wait")
+                            return jsonify({"status": "cancelled", "message": "Launch cancelled by user"})
                         
                         # Re-check if process still exists (may have new PID after launcher)
                         actual_process = find_process_by_name(current_game_process_name)
                         if actual_process:
                             logger.info(f"Retry {attempt}: Process found: {actual_process.name()} (PID: {actual_process.pid})")
-                            foreground_confirmed = ensure_window_foreground(actual_process.pid, timeout=5)
+                            
+                            # v0.2: Try pywinauto wait first on retry
+                            window_ready, hwnd, _ = wait_for_window_ready_pywinauto(
+                                actual_process.pid,
+                                visible_timeout=15,  # Shorter timeout on retry
+                                ready_timeout=10
+                            )
+                            
+                            # Then try to bring to foreground
+                            foreground_confirmed = ensure_window_foreground_v2(actual_process.pid, timeout=5)
                             if foreground_confirmed:
                                 logger.info(f"Retry {attempt}: Successfully brought to foreground!")
                                 break
@@ -1350,7 +1620,9 @@ def launch_game():
                     "game_process_pid": actual_process.pid,
                     "game_process_name": actual_process.name(),
                     "game_process_status": actual_process.status(),
-                    "foreground_confirmed": foreground_confirmed
+                    "foreground_confirmed": foreground_confirmed,
+                    "pywinauto_available": PYWINAUTO_AVAILABLE,  # v0.2: Report if enhanced detection was used
+                    "window_ready_detected": window_ready if 'window_ready' in dir() else False
                 }
                 
                 if foreground_confirmed:
@@ -1599,40 +1871,73 @@ def health_check():
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='Improved SUT Service v3.1')
+    parser = argparse.ArgumentParser(description='KATANA SUT Service v0.2')
     parser.add_argument('--port', type=int, default=8080, help='Port to run on')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
 
+    # KATANA ASCII Art Banner
+    print("")
+    print("=" * 70)
+    print("""
+    ██╗  ██╗ █████╗ ████████╗ █████╗ ███╗   ██╗ █████╗ 
+    ██║ ██╔╝██╔══██╗╚══██╔══╝██╔══██╗████╗  ██║██╔══██╗
+    █████╔╝ ███████║   ██║   ███████║██╔██╗ ██║███████║
+    ██╔═██╗ ██╔══██║   ██║   ██╔══██║██║╚██╗██║██╔══██║
+    ██║  ██╗██║  ██║   ██║   ██║  ██║██║ ╚████║██║  ██║
+    ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
+                                                   
+                 S U T   S E R V I C E   v 0 . 2
+    """)
+    print("=" * 70)
+    print("    Author: SATYAJIT BHUYAN | satyajit.bhuyan@intel.com")
+    print("    Date:   14th December 2025")
+    print("=" * 70)
+    
+    logger.info("KATANA SUT Service v0.2 - Enhanced Window Detection")
     logger.info("=" * 70)
-    logger.info("Improved SUT Service v3.1 - Optimized for Performance")
-    logger.info("=" * 70)
-    logger.info(f"Starting service on {args.host}:{args.port}")
-    logger.info(f"Admin privileges: {'YES' if is_admin() else 'NO (some features may not work)'}")
-    logger.info(f"Screen resolution: {input_controller.screen_width}x{input_controller.screen_height}")
+    logger.info(f"Host: {args.host}:{args.port}")
+    logger.info(f"Admin: {'YES' if is_admin() else 'NO (run as admin for best results)'}")
+    logger.info(f"Screen: {input_controller.screen_width}x{input_controller.screen_height}")
+    logger.info(f"pywinauto: {'ENABLED' if PYWINAUTO_AVAILABLE else 'DISABLED (install for enhanced detection)'}")
     logger.info("")
-    logger.info("Optimizations:")
-    logger.info("  * Reduced mouse movement steps (50 max, ~40% faster)")
-    logger.info("  * Reusable pointer allocations (reduced memory)")
-    logger.info("  * Optimized scroll with relative positioning")
-    logger.info("  * Proper scan codes for keyboard (better game compatibility)")
+    
+    logger.info("[v0.2 ENHANCEMENTS]")
+    logger.info("  * pywinauto wait('visible')  - waits for window to appear")
+    logger.info("  * pywinauto wait('ready')    - waits for app fully loaded")
+    logger.info("  * pywinauto set_focus()      - reliable foreground switch")
+    logger.info("  * Exact process matching     - finds RDR2.exe not PlayRDR2.exe")
+    logger.info("  * 120s visible timeout       - for slow games (RDR2, etc.)")
+    logger.info("  * 5 retries x 10s intervals  - robust retry mechanism")
+    logger.info("  * Win32 fallback             - works without pywinauto")
     logger.info("")
-    logger.info("Supported Actions:")
-    logger.info("  + Mouse clicks (left/right/middle)")
-    logger.info("  + Double-click")
-    logger.info("  + Drag and drop")
-    logger.info("  + Smooth mouse movement with easing")
-    logger.info("  + Keyboard input (single keys)")
-    logger.info("  + Hotkeys (Ctrl+S, Alt+Tab, etc.)")
-    logger.info("  + Text input")
-    logger.info("  + Mouse scrolling (optimized)")
-    logger.info("  + Process management")
+    
+    logger.info("[v0.2 OPTIMIZATIONS]")
+    logger.info("  * Event.wait() blocking      - near-zero CPU during waits")
+    logger.info("  * 3s process poll interval   - reduced from 1s")
+    logger.info("  * 2s pywinauto poll interval - reduced polling overhead")
+    logger.info("  * /cancel_launch endpoint    - instant stop support")
+    logger.info("")
+    
+    logger.info("[SUPPORTED ACTIONS]")
+    logger.info("  + click        - left/right/middle mouse clicks")
+    logger.info("  + double_click - double-click at position")
+    logger.info("  + hold_click   - click and hold for duration")
+    logger.info("  + drag         - drag from point A to B")
+    logger.info("  + scroll       - mouse wheel scrolling")
+    logger.info("  + key          - single key press")
+    logger.info("  + hold_key     - press and hold key for duration")
+    logger.info("  + hotkey       - key combinations (Ctrl+S, etc.)")
+    logger.info("  + text         - type text strings")
+    logger.info("  + launch       - launch games with foreground detection")
+    logger.info("  + kill_process - terminate processes by name")
+    logger.info("  + login_steam  - Steam auto-login")
     logger.info("=" * 70)
 
     if not is_admin():
         logger.warning("WARNING: Not running with administrator privileges!")
         logger.warning("Some games may block input. Run as administrator for best results.")
-        logger.warning("")
+        print("")
 
     app.run(host=args.host, port=args.port, debug=args.debug)

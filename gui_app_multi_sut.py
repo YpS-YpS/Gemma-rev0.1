@@ -317,6 +317,17 @@ class SUTController:
             self.logger.info(f"Stopping automation for {self.name}")
             self.stop_event.set()
             self.status = "Stopped"
+            
+            # v0.2: Also tell SUT to cancel any ongoing launch operation
+            try:
+                if self.network:
+                    import requests
+                    url = f"http://{self.network.host}:{self.network.port}/cancel_launch"
+                    requests.post(url, timeout=2)
+                    self.logger.info(f"Sent cancel_launch request to SUT")
+            except Exception as e:
+                self.logger.debug(f"Could not send cancel_launch: {e}")
+            
             return True
         return False
 

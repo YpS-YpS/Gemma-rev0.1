@@ -1,87 +1,179 @@
-# Gemma Rev0.1 - Game Automation Framework
+# Katana - Game Automation Framework
 
-This repository contains the **Gemma Automation Framework**, a computer vision-based system for automating and benchmarking game UI navigation. It uses a Client-Server architecture to separate the decision-making "Brain" from the action-taking "Hands".
+**Version: Nightly Release (December 2024)**
 
-## 🚀 Key Features
-
-*   **Multi-SUT Support**: Control multiple Systems Under Test (SUTs) from a single controller.
-*   **Computer Vision**: Uses Vision Language Models (Gemini, Qwen, OmniParser) to "see" and interact with game UIs.
-*   **Data-Driven Automation**: Define game states and transitions using simple YAML configuration files.
-*   **Robust Game Launching**: 
-    *   **Steam Integration**: Auto-resolves installation paths from Steam App IDs.
-    *   **Strict Foreground Enforcement**: Ensures the game window is actually visible and active before proceeding (with retry logic).
-    *   **Process Tracking**: Monitors specific process names/IDs for accurate status reporting.
-
-## 📂 Repository Structure
-
-*   `sut_service_installer/gemma_service_0.1.py`: **The SUT Agent**. Runs on the gaming machine. Handles input (mouse/keyboard), game launching, and screen capture.
-*   `gui_app_multi_sut.py`: **The Controller**. Runs on the host machine. Connects to SUTs, sends commands, and runs the automation logic.
-*   `modules/`: Shared logic for networking, game launching, and automation.
-*   `config/games/`: YAML configuration files defining game states (e.g., `Start Menu` -> `Click Play`).
-
-## 🛠️ Setup & Usage
-
-### 1. On the Gaming Machine (SUT)
-
-1.  Requires **Python 3.10+** and Administrator privileges (for input simulation).
-2.  Install dependencies:
-    ```bash
-    pip install flask pyautogui psutil pywin32 requests
-    ```
-3.  Run the client:
-    ```bash
-    python sut_service_installer/gemma_service_0.1.py
-    ```
-    *   *Note: This service listens on port 8080 by default.*
-
-### 2. On the Controller Machine
-
-1.  Update `mysuts.json` with the IP address of your SUT:
-    ```json
-    {
-      "suts": [
-        {
-          "name": "My Gaming PC",
-          "ip": "192.168.1.100",
-          "port": 8080
-        }
-      ]
-    }
-    ```
-2.  Run the GUI:
-    ```bash
-    python gui_app_multi_sut.py
-    ```
-3.  Select your SUT, load a Game Configuration, and click **"Start Automation"**.
-
-## 🎮 Game Configuration
-
-Configurations are stored in `config/games/`. Example (`cs2.yaml`):
-
-```yaml
-states:
-  main_menu:
-    identifiers:
-      - text: "PLAY"
-    transitions:
-      - action: "click"
-        target: "PLAY"
-        next_state: "play_menu"
-```
-
-## ⚠️ Troubleshooting
-
-*   **"Access Denied" when launching games**: Ensure `gemma_service_0.1.py` is running as **Administrator**.
-*   **Game window not focusing**: The client includes a robust `AttachThreadInput` mechanism. If it fails initially, it will retry after 3 seconds. Check logs for `[WARN] Initial foreground attempt failed`.
+Katana (formerly Gemma) is a **computer vision-based game automation and benchmarking framework**. It uses a distributed Client-Server architecture where a Controller machine orchestrates multiple Systems Under Test (SUTs) running game workloads.
 
 ---
 
-## 📝 Recent Changes / Changelog
+## 🚀 Key Features
 
-*   Fixed individual SUT logging (removed shared logger to prevent race conditions).
-*   Added multi-game queue addition (Gaming Campaign).
-*   Improved UI with colored layout for visual distinction.
-*   Fixed SUT config additions and saving.
-*   Added individual SUT preview (0.25 fps).
-*   Structured logging for campaign vs. single game mode.
-*   Added JSON support for saving/loading campaigns.
+| Feature | Description |
+|---------|-------------|
+| **Multi-SUT Control** | Manage multiple gaming machines from a single controller with independent automation threads |
+| **Computer Vision** | Vision Language Models (OmniParser, Gemini, Qwen) for UI element detection and interaction |
+| **Campaign Mode** | Queue multiple games with configurable run counts and delays |
+| **Step-Based Automation** | YAML-defined automation steps with find-action patterns |
+| **State Machine Automation** | Complex game flow support with state transitions |
+| **Live Preview** | Real-time screenshot streaming from SUTs at configurable FPS |
+| **Steam Integration** | Auto-login, path resolution from Steam App IDs |
+| **Robust Game Launching** | Process tracking, foreground enforcement, startup wait handling |
+
+---
+
+## 📂 Project Structure
+
+```
+Katana/
+├── gui_app_multi_sut.py      # Main Controller GUI (Tkinter)
+├── workflow_builder.py       # Visual workflow/config builder tool
+├── main.py                   # Legacy single-SUT automation script
+│
+├── modules/                  # Core automation logic
+│   ├── network.py            # HTTP client for SUT communication
+│   ├── screenshot.py         # Screenshot capture and caching
+│   ├── game_launcher.py      # Game process launching with Steam support
+│   ├── simple_automation.py  # Step-based automation engine
+│   ├── decision_engine.py    # State machine automation engine
+│   ├── omniparser_client.py  # OmniParser vision model client
+│   ├── gemma_client.py       # Gemma/LM Studio vision client
+│   ├── qwen_client.py        # Qwen VL vision client
+│   └── annotator.py          # Screenshot annotation utilities
+│
+├── sut_service_installer/    # SUT Agent files
+│   ├── gemma_service_0.2.py  # ⭐ Latest SUT agent with CPU optimizations
+│   ├── gemma_service_0.1.py  # Legacy SUT agent  
+│   └── requirements.txt      # SUT dependencies
+│
+├── config/                   # Configuration files
+│   ├── games/                # Game-specific YAML configs
+│   │   ├── cyberpunk2077.yaml
+│   │   ├── cs2_benchmark.yaml
+│   │   ├── rdr2.yaml
+│   │   └── ...
+│   └── campaigns/            # Campaign definitions
+│
+└── omniparser_queue_service.py  # Batch OmniParser processing
+```
+
+---
+
+## 🔧 Installation & Setup
+
+### Prerequisites
+- Python 3.10+
+- Windows 10/11 (SUT machines)
+- [OmniParser](https://github.com/microsoft/OmniParser) running on localhost:9000
+
+### 1. Controller Machine Setup
+
+```bash
+# Clone repository
+git clone https://github.com/YourOrg/Katana.git
+cd Katana
+
+# Install dependencies
+pip install tkinter pillow pyyaml requests
+
+# Run the controller
+python gui_app_multi_sut.py
+```
+
+### 2. SUT (Gaming Machine) Setup
+
+```bash
+# Copy sut_service_installer folder to gaming machine
+cd sut_service_installer
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run as Administrator (required for input simulation)
+python gemma_service_0.2.py
+```
+
+> **Note**: The SUT agent listens on port 8080 by default.
+
+---
+
+## 🎮 Quick Start
+
+1. **Start OmniParser** on localhost:9000
+2. **Start SUT Agent** on your gaming machine as Administrator
+3. **Launch Controller**: `python gui_app_multi_sut.py`
+4. **Add SUT**: Enter IP and port of your gaming machine
+5. **Select Config**: Choose a game YAML from config/games/
+6. **Start Automation**: Click "Start" and watch the magic!
+
+---
+
+## 📝 Configuration Files
+
+### Game Config Example (`config/games/cyberpunk2077.yaml`)
+
+```yaml
+metadata:
+  game_name: Cyberpunk2077
+  path: C:\Steam\steamapps\common\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe
+  process_id: Cyberpunk2077
+  startup_wait: 80
+  benchmark_duration: 100
+
+steps:
+  1:
+    description: PRESS SPACE TO CONTINUE
+    find:
+      type: any
+      text: SPACE
+      text_match: contains
+    action:
+      type: key
+      key: space
+    timeout: 20
+  
+  2:
+    description: CLICK ON SETTINGS
+    find:
+      type: any
+      text: SETTINGS
+    action:
+      type: click
+      button: left
+```
+
+---
+
+## 📋 File Changelog (This Release)
+
+| File | Change | Reason |
+|------|--------|--------|
+| `gui_app_multi_sut.py` | Modified | Enhanced multi-SUT control, improved logging, campaign mode fixes |
+| `modules/network.py` | Modified | Steam login support, improved error handling |
+| `modules/game_launcher.py` | Modified | Process tracking, foreground enforcement with retry logic |
+| `modules/simple_automation.py` | Modified | Progress callbacks, improved step execution |
+| `sut_service_installer/gemma_service_0.2.py` | **NEW** | CPU-optimized SUT agent with Event.wait() instead of polling |
+| `sut_service_installer/requirements.txt` | **NEW** | Dependencies for SUT agent |
+| `config/games/rdr2.yaml` | **NEW** | Red Dead Redemption 2 automation config |
+| `config/games/Cyberpunk2077-test.yaml` | Modified | Updated benchmark workflow |
+| `workflow_builder.py` | Modified | Visual improvements, step editor enhancements |
+
+---
+
+## ⚠️ Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Access Denied" when launching games | Run `gemma_service_0.2.py` as **Administrator** |
+| Game window not focusing | Check logs for retry attempts; increase `startup_wait` in config |
+| OmniParser connection failed | Ensure OmniParser is running on localhost:9000 |
+| High CPU on SUT | Use `gemma_service_0.2.py` which uses Event.wait() instead of polling |
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+**Built with ❤️ for automated game benchmarking**

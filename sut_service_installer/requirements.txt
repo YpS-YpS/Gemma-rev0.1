@@ -1,0 +1,43 @@
+# ================================================================
+# KATANA SUT Service v0.2 Requirements
+# gemma_service_0.2.py - Enhanced window detection with pywinauto
+# 
+# Author: SATYAJIT BHUYAN | satyajit.bhuyan@intel.com
+# Date:   14th December 2025
+# ================================================================
+
+# Flask Web Server
+flask>=2.0.0
+
+# Input Automation
+pyautogui>=0.9.53
+
+# Windows API bindings
+pywin32>=305
+
+# Process Management
+psutil>=5.9.0
+
+# Image Processing (screenshots)
+pillow>=9.0.0
+
+# HTTP Requests (for GUI cancel_launch)
+requests>=2.28.0
+
+# v0.2 NEW: Enhanced window detection and automation
+# - wait('visible') - waits for window to appear
+# - wait('ready')   - waits for app message queue idle
+# - set_focus()     - reliable foreground switching
+pywinauto>=0.6.8
+
+# Required by pywinauto for UI Automation backend
+comtypes>=1.2.0
+
+# ================================================================
+# v0.2 Features:
+# - pywinauto-based window detection (visible + ready states)
+# - Exact process matching (RDR2.exe not PlayRDR2.exe)
+# - Event.wait() optimization (near-zero CPU during waits)
+# - /cancel_launch endpoint (instant stop support)
+# - 120s visible timeout, 5 retries for slow games
+# ================================================================

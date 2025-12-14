@@ -184,6 +184,8 @@ class NetworkManager:
                 "process_id": process_id,
                 "startup_wait": startup_wait
             }
+            
+            logger.debug(f"Sending launch request to {self.base_url}/launch with payload: {payload}")
 
             response = self.session.post(
                 f"{self.base_url}/launch",
@@ -192,6 +194,8 @@ class NetworkManager:
             )
             response.raise_for_status()
             result = response.json()
+            
+            logger.debug(f"Launch response received: status={result.get('status')}, foreground={result.get('foreground_confirmed')}")
             logger.info(f"Game launch request sent: {game_path}, process_id: {process_id}, startup_wait: {startup_wait}")
             return result
         except requests.RequestException as e:
