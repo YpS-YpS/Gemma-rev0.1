@@ -2,12 +2,42 @@
 Interactive Workflow Builder GUI for Game Automation
 Build, test, and export game automation workflows visually
 
-Features:
-- Game control and screenshot capture
-- Interactive bounding box selection
-- Visual workflow step management
-- Action definition and testing
-- YAML export for automation
+Detailed Changes Summary:
+    New Classes Added:
+        ConfigManager - Handles persistent configuration storage
+        RecentFilesDialog - UI for selecting from recent workflow files
+    New Features:
+        Configuration Management:
+        Persistent storage of connection settings (SUT, Omniparser, Gemma IPs/ports)
+        Default values for game metadata fields
+        Window geometry and state persistence
+        Vision model selection persistence
+    Recent Files System:
+        Track up to 10 recently opened workflow files
+        Quick access via Ctrl+R or File menu
+        Automatic cleanup of non-existent files
+        Clear recent files option
+    Keyboard Shortcuts:
+        Ctrl+N: New workflow
+        Ctrl+O: Open workflow
+        Ctrl+R: Recent files
+        Ctrl+S: Save workflow
+        Ctrl+Shift+S: Save as
+    Enhanced File Operations:
+        Save/Save As distinction
+        Current file tracking
+        Window title updates with filename
+        Configuration import/export
+    Improved UX:
+        Window state restoration on startup
+        Proper application shutdown handling
+        Persistent connection settings
+        Default metadata values
+    Technical Improvements:
+        Better separation of concerns with ConfigManager
+        Robust configuration merging for backward compatibility
+        Proper error handling for configuration operations
+        Clean window close event handling
 """
 
 import tkinter as tk
@@ -32,6 +62,135 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+class ConfigManager:
+    """Manages application configuration and recent files."""
+    
+    def __init__(self):
+        self.config_dir = "config"
+        self.config_file = os.path.join(self.config_dir, "workflow_builder_config.json")
+        self.max_recent_files = 10
+        self.config = self.load_config()
+    
+    def ensure_config_dir(self):
+        """Ensure config directory exists."""
+        os.makedirs(self.config_dir, exist_ok=True)
+    
+    def load_config(self) -> Dict[str, Any]:
+        """Load configuration from file."""
+        self.ensure_config_dir()
+        
+        default_config = {
+            "connections": {
+                "sut": {
+                    "ip": "192.168.50.217",
+                    "port": "8080"
+                },
+                "omniparser": {
+                    "ip": "192.168.50.241",
+                    "port": "8000"
+                },
+                "gemma": {
+                    "ip": "192.168.50.241",
+                    "port": "1234"
+                },
+                "vision_model": "omniparser"
+            },
+            "recent_workflows": [],
+            "window": {
+                "geometry": "1600x900",
+                "maximized": False
+            },
+            "defaults": {
+                "game_name": "My Game",
+                "version": "1.0",
+                "benchmark_duration": "120",
+                "startup_wait": "30",
+                "resolution": "1920x1080",
+                "preset": "High",
+                "graphics_api": "DirectX 11"
+            }
+        }
+        
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    loaded_config = json.load(f)
+                # Merge with defaults to handle new keys
+                self._merge_config(default_config, loaded_config)
+                return default_config
+            else:
+                return default_config
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            return default_config
+    
+    def _merge_config(self, default: Dict, loaded: Dict):
+        """Recursively merge loaded config into default config."""
+        for key, value in loaded.items():
+            if key in default:
+                if isinstance(value, dict) and isinstance(default[key], dict):
+                    self._merge_config(default[key], value)
+                else:
+                    default[key] = value
+    
+    def save_config(self):
+        """Save configuration to file."""
+        try:
+            self.ensure_config_dir()
+            with open(self.config_file, 'w') as f:
+                json.dump(self.config, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save config: {e}")
+    
+    def add_recent_workflow(self, filepath: str):
+        """Add workflow to recent files list."""
+        filepath = os.path.abspath(filepath)
+        
+        # Remove if already exists
+        if filepath in self.config["recent_workflows"]:
+            self.config["recent_workflows"].remove(filepath)
+        
+        # Add to beginning
+        self.config["recent_workflows"].insert(0, filepath)
+        
+        # Limit to max recent files
+        self.config["recent_workflows"] = self.config["recent_workflows"][:self.max_recent_files]
+        
+        # Remove non-existent files
+        self.config["recent_workflows"] = [f for f in self.config["recent_workflows"] if os.path.exists(f)]
+        
+        self.save_config()
+    
+    def get_recent_workflows(self) -> List[str]:
+        """Get list of recent workflow files."""
+        # Filter out non-existent files
+        existing_files = [f for f in self.config["recent_workflows"] if os.path.exists(f)]
+        if len(existing_files) != len(self.config["recent_workflows"]):
+            self.config["recent_workflows"] = existing_files
+            self.save_config()
+        return existing_files
+    
+    def update_connection_config(self, connection_type: str, ip: str, port: str):
+        """Update connection configuration."""
+        if connection_type not in self.config["connections"]:
+            self.config["connections"][connection_type] = {}
+        
+        self.config["connections"][connection_type]["ip"] = ip
+        self.config["connections"][connection_type]["port"] = port
+        self.save_config()
+    
+    def update_window_config(self, geometry: str, maximized: bool = False):
+        """Update window configuration."""
+        self.config["window"]["geometry"] = geometry
+        self.config["window"]["maximized"] = maximized
+        self.save_config()
+    
+    def update_vision_model(self, model: str):
+        """Update selected vision model."""
+        self.config["connections"]["vision_model"] = model
+        self.save_config()
 
 
 class WorkflowStep:
@@ -652,14 +811,115 @@ class ActionDefinitionDialog(tk.Toplevel):
         self.geometry(f'{width}x{height}+{x}+{y}')
 
 
+class RecentFilesDialog(tk.Toplevel):
+    """Dialog for selecting recent workflow files."""
+    
+    def __init__(self, parent, recent_files: List[str]):
+        super().__init__(parent)
+        self.title("Recent Workflows")
+        self.geometry("600x400")
+        self.result = None
+        self.recent_files = recent_files
+        
+        self.create_widgets()
+        self.center_window()
+    
+    def create_widgets(self):
+        """Create dialog widgets."""
+        # Header
+        header_frame = ttk.Frame(self)
+        header_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        ttk.Label(header_frame, text="Recent Workflow Files", 
+                 font=('TkDefaultFont', 12, 'bold')).pack(anchor=tk.W)
+        ttk.Label(header_frame, text="Double-click to open a workflow file", 
+                 font=('TkDefaultFont', 9), foreground="gray").pack(anchor=tk.W)
+        
+        # Files list
+        list_frame = ttk.Frame(self)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Listbox with scrollbar
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.files_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set,
+                                       font=("Consolas", 10))
+        self.files_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.files_listbox.yview)
+        
+        # Populate list
+        for filepath in self.recent_files:
+            # Show filename and directory
+            filename = os.path.basename(filepath)
+            directory = os.path.dirname(filepath)
+            display_text = f"{filename}\n    {directory}"
+            self.files_listbox.insert(tk.END, display_text)
+        
+        # Bind double-click
+        self.files_listbox.bind("<Double-Button-1>", self.on_double_click)
+        
+        # Buttons
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        ttk.Button(btn_frame, text="Open", command=self.on_open).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="Clear List", command=self.on_clear).pack(side=tk.LEFT)
+        
+        # Select first item if available
+        if self.recent_files:
+            self.files_listbox.selection_set(0)
+    
+    def on_double_click(self, event):
+        """Handle double-click on file."""
+        self.on_open()
+    
+    def on_open(self):
+        """Open selected file."""
+        selection = self.files_listbox.curselection()
+        if selection:
+            idx = selection[0]
+            self.result = self.recent_files[idx]
+            self.destroy()
+    
+    def on_clear(self):
+        """Clear recent files list."""
+        if messagebox.askyesno("Confirm", "Clear all recent files?"):
+            self.result = "CLEAR"
+            self.destroy()
+    
+    def on_cancel(self):
+        """Cancel dialog."""
+        self.result = None
+        self.destroy()
+    
+    def center_window(self):
+        """Center window on screen."""
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+
 class WorkflowBuilderGUI:
     """Main Workflow Builder GUI Application."""
 
     def __init__(self, root):
         self.root = root
         self.root.title("Katana Workflow Builder")
-        self.root.geometry("1600x900")
-
+        
+        # Initialize configuration manager
+        self.config_manager = ConfigManager()
+        
+        # Apply saved window configuration
+        window_config = self.config_manager.config["window"]
+        self.root.geometry(window_config["geometry"])
+        if window_config["maximized"]:
+            self.root.state('zoomed')  # Windows
+        
         # State
         self.current_screenshot = None
         self.current_bboxes = []
@@ -668,39 +928,69 @@ class WorkflowBuilderGUI:
         self.screenshot_mgr = None
         self.vision_model = None
 
+        # Load connection settings from config
+        conn_config = self.config_manager.config["connections"]
+        
         # SUT connection
-        self.sut_ip = tk.StringVar(value="192.168.50.217") #Razer laptop
-        self.sut_port = tk.StringVar(value="8080")
+        self.sut_ip = tk.StringVar(value=conn_config["sut"]["ip"])
+        self.sut_port = tk.StringVar(value=conn_config["sut"]["port"])
 
         # Vision model connections
-        self.omniparser_ip = tk.StringVar(value="localhost")
-        self.omniparser_port = tk.StringVar(value="8000")
-        self.gemma_ip = tk.StringVar(value="localhost")
-        self.gemma_port = tk.StringVar(value="1234")
+        self.omniparser_ip = tk.StringVar(value=conn_config["omniparser"]["ip"])
+        self.omniparser_port = tk.StringVar(value=conn_config["omniparser"]["port"])
+        self.gemma_ip = tk.StringVar(value=conn_config["gemma"]["ip"])
+        self.gemma_port = tk.StringVar(value=conn_config["gemma"]["port"])
 
         # Store connection states for each model
         self.omniparser_connection = None
         self.gemma_connection = None
 
-        # Metadata variables
-        self.game_name = tk.StringVar(value="My Game")
+        # Load metadata defaults from config
+        defaults = self.config_manager.config["defaults"]
+        self.game_name = tk.StringVar(value=defaults["game_name"])
         self.game_path = tk.StringVar(value="")
         self.process_id = tk.StringVar(value="")
         self.process_name = tk.StringVar(value="")
-        self.version = tk.StringVar(value="1.0")
-        self.benchmark_duration = tk.StringVar(value="120")
-        self.startup_wait = tk.StringVar(value="30")
-        self.resolution = tk.StringVar(value="1920x1080")
-        self.preset = tk.StringVar(value="High")
+        self.version = tk.StringVar(value=defaults["version"])
+        self.benchmark_duration = tk.StringVar(value=defaults["benchmark_duration"])
+        self.startup_wait = tk.StringVar(value=defaults["startup_wait"])
+        self.resolution = tk.StringVar(value=defaults["resolution"])
+        self.preset = tk.StringVar(value=defaults["preset"])
         self.benchmark_name = tk.StringVar(value="")
         self.engine = tk.StringVar(value="")
-        self.graphics_api = tk.StringVar(value="DirectX 11")
+        self.graphics_api = tk.StringVar(value=defaults["graphics_api"])
 
         # Clipboard for copy/paste
         self.copied_step = None
 
         self.create_widgets()
         self.center_window()
+        
+        # Bind window close event to save configuration
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def on_closing(self):
+        """Handle window closing - save configuration."""
+        try:
+            # Save window state
+            geometry = self.root.geometry()
+            maximized = self.root.state() == 'zoomed'
+            self.config_manager.update_window_config(geometry, maximized)
+            
+            # Save connection settings
+            self.config_manager.update_connection_config("sut", self.sut_ip.get(), self.sut_port.get())
+            self.config_manager.update_connection_config("omniparser", self.omniparser_ip.get(), self.omniparser_port.get())
+            self.config_manager.update_connection_config("gemma", self.gemma_ip.get(), self.gemma_port.get())
+            
+            # Save vision model selection
+            vision_model = getattr(self, 'vision_var', None)
+            if vision_model:
+                self.config_manager.update_vision_model(vision_model.get())
+            
+        except Exception as e:
+            logger.error(f"Error saving configuration: {e}")
+        
+        self.root.destroy()
 
     def create_widgets(self):
         """Create main GUI widgets."""
@@ -710,11 +1000,25 @@ class WorkflowBuilderGUI:
 
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="New Workflow", command=self.new_workflow)
-        file_menu.add_command(label="Open YAML", command=self.load_yaml)
-        file_menu.add_command(label="Save YAML", command=self.save_yaml)
+        file_menu.add_command(label="New Workflow", command=self.new_workflow, accelerator="Ctrl+N")
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(label="Open YAML...", command=self.load_yaml, accelerator="Ctrl+O")
+        file_menu.add_command(label="Open Recent", command=self.show_recent_files, accelerator="Ctrl+R")
+        file_menu.add_separator()
+        file_menu.add_command(label="Save YAML", command=self.save_yaml, accelerator="Ctrl+S")
+        file_menu.add_command(label="Save YAML As...", command=self.save_yaml_as, accelerator="Ctrl+Shift+S")
+        file_menu.add_separator()
+        file_menu.add_command(label="Load Configuration", command=self.load_configuration)
+        file_menu.add_command(label="Save Configuration", command=self.save_configuration)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.on_closing, accelerator="Alt+F4")
+
+        # Bind keyboard shortcuts
+        self.root.bind('<Control-n>', lambda e: self.new_workflow())
+        self.root.bind('<Control-o>', lambda e: self.load_yaml())
+        self.root.bind('<Control-r>', lambda e: self.show_recent_files())
+        self.root.bind('<Control-s>', lambda e: self.save_yaml())
+        self.root.bind('<Control-S>', lambda e: self.save_yaml_as())
 
         # Main container
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -752,7 +1056,7 @@ class WorkflowBuilderGUI:
         vision_select_frame.pack(fill=tk.X, pady=2)
 
         ttk.Label(vision_select_frame, text="Model:").pack(side=tk.LEFT, padx=2)
-        self.vision_var = tk.StringVar(value="omniparser")
+        self.vision_var = tk.StringVar(value=self.config_manager.config["connections"]["vision_model"])
         ttk.Radiobutton(vision_select_frame, text="Omniparser", variable=self.vision_var,
                        value="omniparser", command=self.on_vision_model_change).pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(vision_select_frame, text="Gemma", variable=self.vision_var,
@@ -782,6 +1086,9 @@ class WorkflowBuilderGUI:
         # Create status label for gemma frame (same reference as omni_frame status)
         self.gemma_status_label = ttk.Label(self.gemma_frame, text="Not Connected", foreground="red")
         self.gemma_status_label.pack(side=tk.LEFT, padx=5)
+
+        # Initialize vision model display
+        self.on_vision_model_change()
 
         # Action buttons
         btn_frame = ttk.Frame(control_frame)
@@ -1470,8 +1777,35 @@ class WorkflowBuilderGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open folder: {str(e)}")
 
+    def show_recent_files(self):
+        """Show recent files dialog."""
+        recent_files = self.config_manager.get_recent_workflows()
+        
+        if not recent_files:
+            messagebox.showinfo("No Recent Files", "No recent workflow files found.")
+            return
+        
+        dialog = RecentFilesDialog(self.root, recent_files)
+        self.root.wait_window(dialog)
+        
+        if dialog.result == "CLEAR":
+            # Clear recent files
+            self.config_manager.config["recent_workflows"] = []
+            self.config_manager.save_config()
+            self.status_text.set("Recent files cleared")
+        elif dialog.result:
+            # Load selected file
+            self.load_yaml_file(dialog.result)
+
     def save_yaml(self):
-        """Save workflow to YAML file."""
+        """Save workflow to current file or prompt for new file."""
+        if hasattr(self, 'current_file') and self.current_file:
+            self.save_yaml_file(self.current_file)
+        else:
+            self.save_yaml_as()
+
+    def save_yaml_as(self):
+        """Save workflow to new YAML file."""
         if not self.workflow_steps:
             messagebox.showwarning("Warning", "No steps to save!")
             return
@@ -1482,9 +1816,11 @@ class WorkflowBuilderGUI:
             initialdir="config/games"
         )
 
-        if not filename:
-            return
+        if filename:
+            self.save_yaml_file(filename)
 
+    def save_yaml_file(self, filename: str):
+        """Save workflow to specified YAML file."""
         try:
             # Build YAML structure
             metadata = {
@@ -1543,6 +1879,13 @@ class WorkflowBuilderGUI:
             with open(filename, 'w') as f:
                 yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
 
+            # Update current file and recent files
+            self.current_file = filename
+            self.config_manager.add_recent_workflow(filename)
+            
+            # Update window title
+            self.root.title(f"Katana Workflow Builder - {os.path.basename(filename)}")
+
             self.status_text.set(f"Saved workflow to {filename}")
             messagebox.showinfo("Success", f"Workflow saved to:\n{filename}")
 
@@ -1556,9 +1899,11 @@ class WorkflowBuilderGUI:
             initialdir="config/games"
         )
 
-        if not filename:
-            return
+        if filename:
+            self.load_yaml_file(filename)
 
+    def load_yaml_file(self, filename: str):
+        """Load workflow from specified YAML file."""
         try:
             with open(filename, 'r') as f:
                 yaml_data = yaml.safe_load(f)
@@ -1621,6 +1966,13 @@ class WorkflowBuilderGUI:
 
                 self.workflow_steps.append(step)
 
+            # Update current file and recent files
+            self.current_file = filename
+            self.config_manager.add_recent_workflow(filename)
+            
+            # Update window title
+            self.root.title(f"Katana Workflow Builder - {os.path.basename(filename)}")
+
             self.refresh_steps_list()
             self.status_text.set(f"Loaded {len(self.workflow_steps)} steps from {filename}")
             messagebox.showinfo("Success", f"Loaded workflow from:\n{filename}")
@@ -1637,21 +1989,139 @@ class WorkflowBuilderGUI:
         self.workflow_steps = []
         self.refresh_steps_list()
 
-        # Reset all metadata fields
-        self.game_name.set("My Game")
-        self.version.set("1.0")
+        # Reset current file
+        self.current_file = None
+        self.root.title("Katana Workflow Builder")
+
+        # Reset all metadata fields to defaults
+        defaults = self.config_manager.config["defaults"]
+        self.game_name.set(defaults["game_name"])
+        self.version.set(defaults["version"])
         self.game_path.set("")
         self.process_id.set("")
         self.process_name.set("")
         self.benchmark_name.set("")
-        self.benchmark_duration.set("120")
-        self.startup_wait.set("30")
-        self.resolution.set("1920x1080")
-        self.preset.set("High")
+        self.benchmark_duration.set(defaults["benchmark_duration"])
+        self.startup_wait.set(defaults["startup_wait"])
+        self.resolution.set(defaults["resolution"])
+        self.preset.set(defaults["preset"])
         self.engine.set("")
-        self.graphics_api.set("DirectX 11")
+        self.graphics_api.set(defaults["graphics_api"])
 
         self.status_text.set("New workflow created")
+
+    def save_configuration(self):
+        """Save current application configuration."""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialdir="config",
+            title="Save Configuration"
+        )
+
+        if not filename:
+            return
+
+        try:
+            config_data = {
+                "connections": {
+                    "sut": {
+                        "ip": self.sut_ip.get(),
+                        "port": self.sut_port.get()
+                    },
+                    "omniparser": {
+                        "ip": self.omniparser_ip.get(),
+                        "port": self.omniparser_port.get()
+                    },
+                    "gemma": {
+                        "ip": self.gemma_ip.get(),
+                        "port": self.gemma_port.get()
+                    },
+                    "vision_model": self.vision_var.get()
+                },
+                "defaults": {
+                    "game_name": self.game_name.get(),
+                    "version": self.version.get(),
+                    "benchmark_duration": self.benchmark_duration.get(),
+                    "startup_wait": self.startup_wait.get(),
+                    "resolution": self.resolution.get(),
+                    "preset": self.preset.get(),
+                    "graphics_api": self.graphics_api.get()
+                },
+                "window": {
+                    "geometry": self.root.geometry(),
+                    "maximized": self.root.state() == 'zoomed'
+                }
+            }
+
+            with open(filename, 'w') as f:
+                json.dump(config_data, f, indent=2)
+
+            self.status_text.set(f"Configuration saved to {filename}")
+            messagebox.showinfo("Success", f"Configuration saved to:\n{filename}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save configuration: {str(e)}")
+
+    def load_configuration(self):
+        """Load application configuration."""
+        filename = filedialog.askopenfilename(
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialdir="config",
+            title="Load Configuration"
+        )
+
+        if not filename:
+            return
+
+        try:
+            with open(filename, 'r') as f:
+                config_data = json.load(f)
+
+            # Load connection settings
+            connections = config_data.get("connections", {})
+            
+            sut_config = connections.get("sut", {})
+            self.sut_ip.set(sut_config.get("ip", "192.168.50.217"))
+            self.sut_port.set(sut_config.get("port", "8080"))
+
+            omni_config = connections.get("omniparser", {})
+            self.omniparser_ip.set(omni_config.get("ip", "192.168.50.241"))
+            self.omniparser_port.set(omni_config.get("port", "8000"))
+
+            gemma_config = connections.get("gemma", {})
+            self.gemma_ip.set(gemma_config.get("ip", "192.168.50.241"))
+            self.gemma_port.set(gemma_config.get("port", "1234"))
+
+            # Load vision model selection
+            vision_model = connections.get("vision_model", "omniparser")
+            self.vision_var.set(vision_model)
+            self.on_vision_model_change()
+
+            # Load defaults
+            defaults = config_data.get("defaults", {})
+            self.game_name.set(defaults.get("game_name", "My Game"))
+            self.version.set(defaults.get("version", "1.0"))
+            self.benchmark_duration.set(defaults.get("benchmark_duration", "120"))
+            self.startup_wait.set(defaults.get("startup_wait", "30"))
+            self.resolution.set(defaults.get("resolution", "1920x1080"))
+            self.preset.set(defaults.get("preset", "High"))
+            self.graphics_api.set(defaults.get("graphics_api", "DirectX 11"))
+
+            # Load window settings
+            window_config = config_data.get("window", {})
+            geometry = window_config.get("geometry", "1600x900")
+            maximized = window_config.get("maximized", False)
+            
+            self.root.geometry(geometry)
+            if maximized:
+                self.root.state('zoomed')
+
+            self.status_text.set(f"Configuration loaded from {filename}")
+            messagebox.showinfo("Success", f"Configuration loaded from:\n{filename}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load configuration: {str(e)}")
 
     def center_window(self):
         """Center window on screen."""
