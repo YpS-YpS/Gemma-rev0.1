@@ -1,11 +1,11 @@
 # Implementation Plan: Sideload & Hooks Features
 
-## Status: ✅ IMPLEMENTED
+## Status: ✅ IMPLEMENTED (Updated)
 
 ## Overview
 Two new features added to the game automation system:
 1. **Hooks** - Run executables before step 1 starts and after the last step completes (with support for long-running tools)
-2. **Sideload** - Run executables within any automation step
+2. **Sideload** - Run executables within any automation step (as a separate attribute, not an action type)
 
 ---
 
@@ -53,43 +53,60 @@ steps:
 
 ---
 
-## Feature 2: Sideload (In-Step Executable Execution)
+## Feature 2: Sideload (Step Attribute for Script Execution)
 
-### YAML Schema
+**UPDATED**: Sideload is now a **separate step attribute**, not an action type. This allows:
+- Combining any action (click, key, wait) with a sideload script
+- Steps that only run a sideload (no action required)
+- More flexibility for users
+
+### YAML Schema (Updated)
 ```yaml
 steps:
-  3:
-    description: "Run pre-benchmark preparation"
+  # Step with action AND sideload (sideload runs AFTER action)
+  2:
+    description: "Click Play and run setup script"
+    find:
+      type: "button"
+      text: "PLAY"
     action:
-      type: "sideload"
+      type: "click"
+    sideload:                          # Separate attribute!
+      path: "C:\\Scripts\\setup.ps1"
+      args: ["-Config", "high"]
+      timeout: 60
+      wait_for_completion: true
+      check_exit_code: true
+    expected_delay: 5
+
+  # Step with ONLY sideload (no action)
+  3:
+    description: "Run configuration script"
+    sideload:
       path: "C:\\Scripts\\configure_settings.ps1"
       args: ["-Resolution", "1920x1080"]
       timeout: 60
       wait_for_completion: true
-      check_exit_code: true
     expected_delay: 2
 
-  5:
-    description: "Start background trace"
+  # Step with action only (no sideload)
+  4:
+    description: "Wait for benchmark"
     action:
-      type: "sideload"
-      path: "C:\\Tools\\trace.exe"
-      args: ["--start"]
-      wait_for_completion: false  # Fire and forget
-    expected_delay: 1
+      type: "wait"
+      duration: 120
+    expected_delay: 0
 ```
 
 ### Sideload Fields
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | required | Must be "sideload" |
 | `path` | string | required | Path to executable |
 | `args` | list | [] | Command line arguments |
 | `timeout` | int | 300 | Max seconds to wait |
 | `working_dir` | string | parent of path | Working directory |
 | `wait_for_completion` | bool | true | Block until process completes |
 | `check_exit_code` | bool | true | Fail step if exit code != 0 |
-| `shell` | bool | auto | Run in shell |
 
 ---
 
@@ -111,33 +128,35 @@ steps:
 - Added `_start_persistent_hooks()` - starts persistent hooks (no wait)
 - Added `_stop_persistent_hooks()` - terminates persistent hooks after automation
 - Added `_execute_post_hooks()` - runs post hooks
-- Added `_handle_sideload_action()` - handles sideload action type
-- Modified `run()` to call hooks at appropriate times
-- Modified `_execute_modular_action()` to dispatch sideload actions
+- Added `_handle_sideload_action()` - handles sideload execution
+- **Updated**: `_process_step_modular()` handles sideload as separate step attribute
+- Sideload runs AFTER action completes (if both present)
+- Steps can have action only, sideload only, or both
 
 ### 4. `modules/simple_config_parser.py` ✅
-- Added `VALID_ACTION_TYPES` set including "sideload"
+- Added `VALID_ACTION_TYPES` set (sideload removed - it's now a step attribute)
 - Added `_validate_hooks()` - validates hooks section structure
 - Added `_validate_hook_entry()` - validates individual hook entries
-- Added `_validate_sideload_action()` - validates sideload action config
+- **Updated**: `_validate_sideload()` - validates sideload step attribute
+- Updated validation to allow: action OR sideload OR both
 
 ### 5. `workflow_builder.py` ✅
-- Added "Sideload" action type to action grid (Column 3)
-- Added sideload_frame with path, args, timeout, wait, check_exit_code fields
+- **Updated**: Sideload is now a toggleable section, not an action type
+- Sideload frame with "Enable Sideload" checkbox
+- Sideload fields: path, args, timeout, wait, check_exit_code
 - Added hooks support in `save_yaml()` and `load_yaml()`
 - Added `show_hooks_editor()` - dialog to manage pre/post hooks
 - Added `_add_hook_dialog()` - dialog to add individual hooks
-- Added `show_yaml_reference()` - comprehensive YAML reference dialog
-- Added yellow "? Help" button for quick YAML reference
+- Added `show_yaml_reference()` - comprehensive help dialog with tabs
+- Added yellow "? Help" button for quick reference
 - Added "⚙ Hooks" button for hooks editor
-- Updated `on_action_change()` to show/hide sideload frame
-- Updated `on_ok()` to build sideload action config
-- Updated `WorkflowStep.to_dict()` to handle sideload
-- Updated `new_workflow()` to reset hooks
+- Updated `WorkflowStep` class with `sideload_config` attribute
+- Updated `WorkflowStep.to_dict()` to output sideload as step attribute
+- Updated `load_yaml()` to load sideload from step attribute
 
 ---
 
-## Execution Flow
+## Execution Flow (Updated)
 
 ```
 run() called
@@ -148,10 +167,9 @@ run() called
     │
     ├── while current_step <= len(steps):
     │       │
-    │       ├── if action.type == "sideload":
-    │       │       └── _handle_sideload_action()
+    │       ├── Execute ACTION (if present): click, wait, key, etc.
     │       │
-    │       └── (other action types...)
+    │       └── Execute SIDELOAD (if present): runs AFTER action
     │
     ├── _stop_persistent_hooks()  ← Terminate all persistent hooks
     │
@@ -163,22 +181,22 @@ run() called
 ## UI Changes
 
 ### Workflow Builder
-1. **New Sideload action type** in "Other Actions" column
-2. **Sideload configuration panel** with:
+1. **Sideload section** (separate from actions):
+   - "Enable Sideload" checkbox
    - Path input field
    - Arguments field (comma-separated)
    - Timeout field
    - Wait for completion checkbox
    - Check exit code checkbox
 
-3. **Edit → Edit Hooks...** menu option opens hooks editor dialog
-4. **Help → YAML Reference** menu option opens full YAML reference
-5. **Yellow "? Help" button** on toolbar for quick reference
-6. **"⚙ Hooks" button** on toolbar for hooks editor
+2. **Edit → Edit Hooks...** menu option opens hooks editor dialog
+3. **Help → YAML Reference** menu option opens full help guide
+4. **Yellow "? Help" button** on toolbar for quick reference
+5. **"⚙ Hooks" button** on toolbar for hooks editor
 
 ---
 
-## Example Complete YAML
+## Example Complete YAML (Updated)
 
 ```yaml
 metadata:
@@ -202,9 +220,8 @@ hooks:
 
 steps:
   1:
-    description: "Configure resolution"
-    action:
-      type: "sideload"
+    description: "Configure resolution (sideload only)"
+    sideload:
       path: "D:\\Scripts\\set_resolution.ps1"
       args: ["-Width", "1920", "-Height", "1080"]
       timeout: 30
@@ -220,6 +237,19 @@ steps:
     expected_delay: 5
 
   3:
+    description: "Click Settings and run config script"
+    find:
+      type: "icon"
+      text: "Settings"
+    action:
+      type: "click"
+    sideload:
+      path: "D:\\Scripts\\apply_settings.py"
+      args: ["--preset", "ultra"]
+      timeout: 30
+    expected_delay: 2
+
+  4:
     description: "Wait for benchmark"
     action:
       type: "wait"
@@ -230,4 +260,5 @@ steps:
 ---
 
 ## Implementation Date
-- **Completed**: January 24, 2026
+- **Initial**: January 24, 2026
+- **Updated (Sideload as attribute)**: January 24, 2026

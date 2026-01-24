@@ -57,11 +57,11 @@ class SimpleConfigParser:
             logger.error(f"Failed to parse YAML config: {str(e)}")
             raise
     
-    # Valid action types for step actions
+    # Valid action types for step actions (sideload is now a separate step attribute)
     VALID_ACTION_TYPES = {
         "click", "key", "keypress", "hotkey", "type", "text", "input",
         "double_click", "right_click", "middle_click", "drag", "drag_drop",
-        "scroll", "wait", "conditional", "sequence", "sideload"
+        "scroll", "wait", "conditional", "sequence"
     }
 
     def _validate_config(self) -> bool:
@@ -96,13 +96,15 @@ class SimpleConfigParser:
 
             # Check that step has either:
             # 1. A 'find' section (for steps that need to locate UI elements)
-            # 2. An 'action' section without 'find' (for action-only steps like wait, key press)
+            # 2. An 'action' section (for action steps like click, wait, key press)
+            # 3. A 'sideload' section (for running scripts - can be alone or with action)
             has_find = "find" in step
             has_action = "action" in step
+            has_sideload = "sideload" in step
 
-            if not has_find and not has_action:
-                logger.error(f"Step {step_num} must have either 'find' or 'action' section")
-                raise ValueError(f"Invalid step {step_num}: missing 'find' or 'action'")
+            if not has_find and not has_action and not has_sideload:
+                logger.error(f"Step {step_num} must have 'find', 'action', or 'sideload' section")
+                raise ValueError(f"Invalid step {step_num}: missing 'find', 'action', or 'sideload'")
 
             # Validate find section if present
             if has_find:
@@ -132,9 +134,9 @@ class SimpleConfigParser:
                 if action_type and action_type not in self.VALID_ACTION_TYPES:
                     logger.warning(f"Step {step_num} has unknown action type: '{action_type}'")
 
-                # Validate sideload action has required fields
-                if action_type == "sideload":
-                    self._validate_sideload_action(action_section, step_num)
+            # Validate sideload section if present (separate from action)
+            if has_sideload:
+                self._validate_sideload(step["sideload"], step_num)
 
         logger.info("Simple configuration validation successful")
         return True
@@ -213,33 +215,37 @@ class SimpleConfigParser:
         if "persistent" in hook and not isinstance(hook["persistent"], bool):
             logger.warning(f"{hook_name} 'persistent' should be a boolean")
 
-    def _validate_sideload_action(self, action: Dict[str, Any], step_num: str) -> None:
+    def _validate_sideload(self, sideload: Dict[str, Any], step_num: str) -> None:
         """
-        Validate a sideload action configuration.
+        Validate a sideload configuration (step attribute, not action type).
 
         Args:
-            action: Action configuration dictionary
+            sideload: Sideload configuration dictionary
             step_num: Step number for error messages
 
         Raises:
             ValueError: If sideload configuration is invalid
         """
-        # 'path' is required for sideload
-        if "path" not in action:
-            logger.error(f"Step {step_num} sideload action missing required 'path' field")
-            raise ValueError(f"Invalid step {step_num}: sideload action missing 'path'")
+        if not isinstance(sideload, dict):
+            logger.error(f"Step {step_num} 'sideload' must be a dictionary")
+            raise ValueError(f"Invalid step {step_num}: 'sideload' must be a dictionary")
 
-        path = action["path"]
+        # 'path' is required for sideload
+        if "path" not in sideload:
+            logger.error(f"Step {step_num} sideload missing required 'path' field")
+            raise ValueError(f"Invalid step {step_num}: sideload missing 'path'")
+
+        path = sideload["path"]
         if not isinstance(path, str) or not path.strip():
             logger.error(f"Step {step_num} sideload 'path' must be a non-empty string")
             raise ValueError(f"Invalid step {step_num}: sideload 'path' must be a non-empty string")
 
         # Validate optional fields
-        if "args" in action and not isinstance(action["args"], list):
+        if "args" in sideload and not isinstance(sideload["args"], list):
             logger.warning(f"Step {step_num} sideload 'args' should be a list")
 
-        if "timeout" in action:
-            timeout = action["timeout"]
+        if "timeout" in sideload:
+            timeout = sideload["timeout"]
             if not isinstance(timeout, (int, float)) or timeout <= 0:
                 logger.warning(f"Step {step_num} sideload 'timeout' should be a positive number")
     

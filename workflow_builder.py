@@ -96,6 +96,7 @@ class WorkflowStep:
         self.text = ""
         self.text_match = "contains"
         self.action_config = {}
+        self.sideload_config = None  # Optional sideload script (runs after action)
         self.verify_elements = []
         self.expected_delay = 2
         self.timeout = 20
@@ -134,13 +135,13 @@ class WorkflowStep:
             }
             step_dict["action"] = self.action_config
 
-        # Handle sideload action (no find block needed)
-        elif self.action_type == "sideload":
-            step_dict["action"] = self.action_config
-
-        # Handle actions without find block
+        # Handle actions without find block (wait, scroll, etc.)
         elif self.action_config:
             step_dict["action"] = self.action_config
+
+        # Add sideload as separate step attribute (runs after action completes)
+        if self.sideload_config:
+            step_dict["sideload"] = self.sideload_config
 
         # Add verification elements
         if self.verify_elements:
@@ -358,8 +359,7 @@ class ActionDefinitionDialog(tk.Toplevel):
             [
                 ("🔧 Other Actions", None, "header"),
                 ("Scroll", "scroll", "Scroll up or down"),
-                ("Wait", "wait", "Wait for specified time"),
-                ("Sideload", "sideload", "Run external script/executable")
+                ("Wait", "wait", "Wait for specified time")
             ]
         ]
 
@@ -484,33 +484,53 @@ class ActionDefinitionDialog(tk.Toplevel):
         ttk.Label(self.wait_frame, text="How many seconds to pause",
                  font=('TkDefaultFont', 9), foreground="gray").grid(row=1, column=0, columnspan=2, sticky=tk.W, padx=(5,0))
 
-        # Sideload options
-        self.sideload_frame = ttk.LabelFrame(scrollable_frame, text="Sideload - Run External Script/Executable", padding=10)
-        ttk.Label(self.sideload_frame, text="Path:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        # === SIDELOAD SECTION (separate from action, can run after any action) ===
+        self.sideload_frame = ttk.LabelFrame(scrollable_frame, text="Sideload Script (Optional) - Run after action completes", padding=10)
+
+        # Enable checkbox at top
+        self.sideload_enabled_var = tk.BooleanVar(value=False)
+        enable_frame = ttk.Frame(self.sideload_frame)
+        enable_frame.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
+        ttk.Checkbutton(enable_frame, text="Enable Sideload",
+                       variable=self.sideload_enabled_var,
+                       command=self._toggle_sideload_fields).pack(side=tk.LEFT)
+        ttk.Label(enable_frame, text="  (Run a script/executable after this step's action)",
+                 font=('TkDefaultFont', 9), foreground="gray").pack(side=tk.LEFT)
+
+        # Sideload options (inside a sub-frame that can be shown/hidden)
+        self.sideload_options_frame = ttk.Frame(self.sideload_frame)
+
+        ttk.Label(self.sideload_options_frame, text="Path:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(5,10))
         self.sideload_path_var = tk.StringVar()
-        ttk.Entry(self.sideload_frame, textvariable=self.sideload_path_var, width=50).grid(row=0, column=1, columnspan=2, sticky=tk.W, pady=5)
-        ttk.Label(self.sideload_frame, text="Full path to script (.py, .bat, .ps1, .exe)",
+        ttk.Entry(self.sideload_options_frame, textvariable=self.sideload_path_var, width=50).grid(row=0, column=1, columnspan=2, sticky=tk.W, pady=5)
+        ttk.Label(self.sideload_options_frame, text="Full path to script (.py, .bat, .ps1, .exe)",
                  font=('TkDefaultFont', 9), foreground="gray").grid(row=1, column=1, columnspan=2, sticky=tk.W, padx=(0,0))
 
-        ttk.Label(self.sideload_frame, text="Arguments:").grid(row=2, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        ttk.Label(self.sideload_options_frame, text="Arguments:").grid(row=2, column=0, sticky=tk.W, pady=5, padx=(5,10))
         self.sideload_args_var = tk.StringVar()
-        ttk.Entry(self.sideload_frame, textvariable=self.sideload_args_var, width=50).grid(row=2, column=1, columnspan=2, sticky=tk.W, pady=5)
-        ttk.Label(self.sideload_frame, text="Command line arguments, comma-separated (e.g., --output, C:\\Logs)",
+        ttk.Entry(self.sideload_options_frame, textvariable=self.sideload_args_var, width=50).grid(row=2, column=1, columnspan=2, sticky=tk.W, pady=5)
+        ttk.Label(self.sideload_options_frame, text="Command line arguments, comma-separated (e.g., --output, C:\\Logs)",
                  font=('TkDefaultFont', 9), foreground="gray").grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=(0,0))
 
-        ttk.Label(self.sideload_frame, text="Timeout:").grid(row=4, column=0, sticky=tk.W, pady=5, padx=(5,10))
+        ttk.Label(self.sideload_options_frame, text="Timeout:").grid(row=4, column=0, sticky=tk.W, pady=5, padx=(5,10))
         self.sideload_timeout_var = tk.StringVar(value="300")
-        ttk.Entry(self.sideload_frame, textvariable=self.sideload_timeout_var, width=10).grid(row=4, column=1, sticky=tk.W, pady=5)
-        ttk.Label(self.sideload_frame, text="seconds",
+        ttk.Entry(self.sideload_options_frame, textvariable=self.sideload_timeout_var, width=10).grid(row=4, column=1, sticky=tk.W, pady=5)
+        ttk.Label(self.sideload_options_frame, text="seconds",
                  font=('TkDefaultFont', 9), foreground="gray").grid(row=4, column=2, sticky=tk.W, padx=5)
 
         self.sideload_wait_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.sideload_frame, text="Wait for completion (block until script finishes)",
+        ttk.Checkbutton(self.sideload_options_frame, text="Wait for completion (block until script finishes)",
                        variable=self.sideload_wait_var).grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=2, padx=(5,0))
 
         self.sideload_check_exit_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(self.sideload_frame, text="Check exit code (fail step if non-zero)",
+        ttk.Checkbutton(self.sideload_options_frame, text="Check exit code (fail step if non-zero)",
                        variable=self.sideload_check_exit_var).grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=2, padx=(5,0))
+
+        # Initially hidden until checkbox is checked
+        # self.sideload_options_frame is shown/hidden by _toggle_sideload_fields
+
+        # === SIDELOAD SECTION - Always visible (separate from action) ===
+        self.sideload_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # === VERIFY SUCCESS ===
         self.verify_frame = ttk.LabelFrame(scrollable_frame, text="Verify Success (Optional) - Check if action worked", padding=10)
@@ -608,11 +628,18 @@ class ActionDefinitionDialog(tk.Toplevel):
             self.verify_listbox.delete(idx)
             self.verify_elements.pop(idx)
 
+    def _toggle_sideload_fields(self):
+        """Show/hide sideload options based on checkbox."""
+        if self.sideload_enabled_var.get():
+            self.sideload_options_frame.grid(row=1, column=0, columnspan=3, sticky=tk.W+tk.E)
+        else:
+            self.sideload_options_frame.grid_forget()
+
     def on_action_change(self):
         """Show/hide frames based on action type."""
         action = self.action_var.get()
 
-        # Hide all configuration frames
+        # Hide all action-specific configuration frames
         self.element_frame.pack_forget()
         self.click_frame.pack_forget()
         self.key_frame.pack_forget()
@@ -621,9 +648,8 @@ class ActionDefinitionDialog(tk.Toplevel):
         self.drag_frame.pack_forget()
         self.scroll_frame.pack_forget()
         self.wait_frame.pack_forget()
-        self.sideload_frame.pack_forget()
 
-        # Show relevant frames
+        # Show relevant frames based on action type
         if action == "find_and_click":
             self.element_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
             self.click_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
@@ -645,8 +671,6 @@ class ActionDefinitionDialog(tk.Toplevel):
             self.scroll_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
         elif action == "wait":
             self.wait_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
-        elif action == "sideload":
-            self.sideload_frame.pack(fill=tk.X, padx=10, pady=5, before=self.verify_frame)
 
     def on_ok(self):
         """Build result and close."""
@@ -732,13 +756,12 @@ class ActionDefinitionDialog(tk.Toplevel):
                     "duration": duration
                 }
 
-            elif action == "sideload":
-                # Parse args from comma-separated string
+            # Add sideload config as separate step attribute (independent of action)
+            if self.sideload_enabled_var.get():
                 args_str = self.sideload_args_var.get().strip()
                 args = [a.strip() for a in args_str.split(",")] if args_str else []
 
-                self.result["action_config"] = {
-                    "type": "sideload",
+                self.result["sideload_config"] = {
                     "path": self.sideload_path_var.get(),
                     "args": args,
                     "timeout": int(self.sideload_timeout_var.get()) if self.sideload_timeout_var.get() else 300,
@@ -1499,6 +1522,10 @@ class WorkflowBuilderGUI:
             elif "action_config" in dialog.result:
                 step.action_config = dialog.result["action_config"]
 
+            # Handle sideload (separate from action, runs after action completes)
+            if "sideload_config" in dialog.result:
+                step.sideload_config = dialog.result["sideload_config"]
+
             step.selected_bbox = selected_bbox
 
             self.workflow_steps.append(step)
@@ -1585,14 +1612,16 @@ class WorkflowBuilderGUI:
             if hasattr(step, 'action_config') and step.action_config:
                 dialog.duration_var.set(str(step.action_config.get('duration', 2)))
 
-        elif step.action_type == "sideload":
-            if hasattr(step, 'action_config') and step.action_config:
-                dialog.sideload_path_var.set(step.action_config.get('path', ''))
-                args = step.action_config.get('args', [])
-                dialog.sideload_args_var.set(', '.join(args) if args else '')
-                dialog.sideload_timeout_var.set(str(step.action_config.get('timeout', 300)))
-                dialog.sideload_wait_var.set(step.action_config.get('wait_for_completion', True))
-                dialog.sideload_check_exit_var.set(step.action_config.get('check_exit_code', True))
+        # Pre-fill sideload fields if step has sideload config (separate from action)
+        if hasattr(step, 'sideload_config') and step.sideload_config:
+            dialog.sideload_enabled_var.set(True)
+            dialog.sideload_path_var.set(step.sideload_config.get('path', ''))
+            args = step.sideload_config.get('args', [])
+            dialog.sideload_args_var.set(', '.join(args) if args else '')
+            dialog.sideload_timeout_var.set(str(step.sideload_config.get('timeout', 300)))
+            dialog.sideload_wait_var.set(step.sideload_config.get('wait_for_completion', True))
+            dialog.sideload_check_exit_var.set(step.sideload_config.get('check_exit_code', True))
+            dialog._toggle_sideload_fields()  # Show sideload options
 
         dialog.on_action_change()
 
@@ -1624,6 +1653,12 @@ class WorkflowBuilderGUI:
             # Handle actions without find block
             elif "action_config" in dialog.result:
                 step.action_config = dialog.result["action_config"]
+
+            # Handle sideload (separate from action, runs after action completes)
+            if "sideload_config" in dialog.result:
+                step.sideload_config = dialog.result["sideload_config"]
+            else:
+                step.sideload_config = None  # Clear if sideload was disabled
 
             self.refresh_steps_list()
             self.status_text.set(f"Updated step {step.step_number}")
@@ -2183,6 +2218,14 @@ class WorkflowBuilderGUI:
                         step.action_type = step.action_config.get("type", "custom")
                     else:
                         step.action_type = "wait"
+                # Only sideload block (step that just runs a script)
+                elif "sideload" in step_data:
+                    step.action_type = "sideload_only"
+                    step.sideload_config = step_data["sideload"]
+
+                # Load sideload if present (can exist alongside action)
+                if "sideload" in step_data:
+                    step.sideload_config = step_data["sideload"]
 
                 self.workflow_steps.append(step)
 
@@ -2478,9 +2521,12 @@ Scroll            Scroll up or down
 Drag and Drop     Drag something from one place to another
                   Example: Drag a file to a folder
 
-Sideload          Run a script or program
-                  Example: Run a PowerShell script to change settings
-                  (Advanced - see "Scripts & Hooks" tab)
+
+BONUS: SIDELOAD SCRIPTS
+-----------------------
+Any step can optionally run a script AFTER the action completes!
+Just check "Enable Sideload" in the step dialog.
+(See "Scripts & Hooks" tab for details)
 
 
 TIPS FOR CHOOSING ACTIONS
@@ -2489,6 +2535,7 @@ TIPS FOR CHOOSING ACTIONS
 - Use "Wait" when the app needs time to load
 - Use "Press Key" for keyboard shortcuts
 - Use "Type Text" only when clicking a text field first
+- Add a Sideload to any step if you need to run a script
 ''')
         actions_help.config(state=tk.DISABLED)
 
@@ -2645,18 +2692,30 @@ Sometimes you need to run a script or program as part of your
 automation. There are two ways to do this:
 
 
-1. SIDELOAD (Run script AS a step)
-==================================
+1. SIDELOAD (Run script AFTER an action)
+========================================
 
-Use "Sideload" when you want to run a script at a specific point
-in your workflow.
+Sideload lets you run a script as part of any step. It runs
+AFTER the main action completes (click, type, etc.).
 
-Example: Change screen resolution before starting a game
+You can also create a step that ONLY runs a sideload script
+(no click or other action needed).
+
+Example uses:
+  - Click "Apply" button, then run a script to verify settings
+  - Run a setup script before the game starts
+  - Change resolution using a PowerShell script
 
 How to use:
-  1. Add a new step
-  2. Choose "Sideload" as the action type
-  3. Enter the path to your script
+  1. Add or edit a step
+  2. Scroll down to "Sideload Script (Optional)"
+  3. Check "Enable Sideload"
+  4. Enter the path to your script
+
+You can combine ANY action with a sideload:
+  - Find and Click + Sideload = Click button, then run script
+  - Wait + Sideload = Wait 5 seconds, then run script
+  - Just Sideload = Only run the script (no click/action)
 
 Settings:
   Path:          Full path to your script

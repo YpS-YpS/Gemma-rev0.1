@@ -285,25 +285,42 @@ class SimpleAutomation:
                 logger.info("=========================================================")
 
         
-        # 2. EXECUTE ACTION
-        if "action" in step:
+        # 2. EXECUTE ACTION (if specified)
+        has_action = "action" in step
+        has_sideload = "sideload" in step
+
+        if has_action:
             success = self._execute_modular_action(step["action"], target_element, step_num)
             if not success:
                 return False
-        else:
-            logger.error(f"No action specified in step {step_num}")
+        elif not has_sideload:
+            # No action and no sideload - invalid step
+            logger.error(f"No action or sideload specified in step {step_num}")
             return False
-        
+
+        # 3. EXECUTE SIDELOAD (if specified) - runs AFTER action
+        if has_sideload:
+            sideload_config = step["sideload"]
+            logger.info(f"Executing sideload for step {step_num}...")
+            sideload_success = self._handle_sideload_action(sideload_config)
+            if not sideload_success:
+                # Check if we should fail the step on sideload failure
+                if sideload_config.get("check_exit_code", True):
+                    logger.error(f"Sideload failed for step {step_num}")
+                    return False
+                else:
+                    logger.warning(f"Sideload failed but check_exit_code=False, continuing...")
+
         # Wait for expected delay
         expected_delay = step.get("expected_delay", 1)
         if expected_delay > 0:
-            logger.info(f"Waiting {expected_delay} seconds after action...")
+            logger.info(f"Waiting {expected_delay} seconds after step...")
             time.sleep(expected_delay)
-        
-        # 3. VERIFY SUCCESS (if specified)
+
+        # 4. VERIFY SUCCESS (if specified)
         if "verify_success" in step:
             return self._verify_step_success(step, step_num)
-        
+
         return True
     
     def _execute_modular_action(self, action_config: Union[str, Dict[str, Any]], target_element: Optional[BoundingBox], step_num: int) -> bool:
@@ -362,10 +379,6 @@ class SimpleAutomation:
         # === SEQUENCE ACTIONS ===
         elif action_type == "sequence":
             return self._handle_sequence_action(action_config, target_element)
-
-        # === SIDELOAD ACTIONS ===
-        elif action_type == "sideload":
-            return self._handle_sideload_action(action_config)
 
         else:
             logger.error(f"Unknown action type: {action_type}")
