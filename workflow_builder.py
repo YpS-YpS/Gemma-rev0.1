@@ -2341,17 +2341,8 @@ class WorkflowBuilderGUI:
         # Create header with yellow background
         header_frame = tk.Frame(dialog, bg="#FFD700", padx=15, pady=15)
         header_frame.pack(fill=tk.X)
-
-        # Title with strikethrough joke: "Workflow Builder for Noobs Newbies"
-        title_frame = tk.Frame(header_frame, bg="#FFD700")
-        title_frame.pack()
-        tk.Label(title_frame, text="Workflow Builder for ",
-                font=('Segoe UI', 16, 'bold'), bg="#FFD700").pack(side=tk.LEFT)
-        tk.Label(title_frame, text="Noobs",
-                font=('Segoe UI', 16, 'bold', 'overstrike'), fg="#666666", bg="#FFD700").pack(side=tk.LEFT)
-        tk.Label(title_frame, text=" Newbies",
-                font=('Segoe UI', 16, 'bold'), bg="#FFD700").pack(side=tk.LEFT)
-
+        tk.Label(header_frame, text="Workflow Builder Full Guide",
+                font=('Segoe UI', 16, 'bold'), bg="#FFD700").pack()
         tk.Label(header_frame, text="Create automations step by step - no coding required!",
                 font=('Segoe UI', 11), bg="#FFD700").pack()
 
