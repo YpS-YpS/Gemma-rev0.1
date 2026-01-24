@@ -2341,9 +2341,9 @@ class WorkflowBuilderGUI:
         # Create header with yellow background
         header_frame = tk.Frame(dialog, bg="#FFD700", padx=15, pady=15)
         header_frame.pack(fill=tk.X)
-        tk.Label(header_frame, text="Welcome to Workflow Builder!",
+        tk.Label(header_frame, text="Workflow Builder for Dummies",
                 font=('Segoe UI', 16, 'bold'), bg="#FFD700").pack()
-        tk.Label(header_frame, text="This guide will help you create automations step by step - no coding required!",
+        tk.Label(header_frame, text="Create automations step by step - no coding required!",
                 font=('Segoe UI', 11), bg="#FFD700").pack()
 
         # Create notebook for tabs
