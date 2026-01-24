@@ -891,11 +891,6 @@ class WorkflowBuilderGUI:
         menubar.add_cascade(label="Edit", menu=edit_menu)
         edit_menu.add_command(label="Edit Hooks...", command=self.show_hooks_editor)
 
-        # Help menu
-        help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Help", menu=help_menu)
-        help_menu.add_command(label="YAML Reference", command=self.show_yaml_reference)
-
         # Main container
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True)
@@ -2337,182 +2332,567 @@ class WorkflowBuilderGUI:
         ttk.Button(dialog, text="Add Hook", command=save_hook).grid(row=5, column=0, columnspan=2, pady=20)
 
     def show_yaml_reference(self):
-        """Show YAML settings reference dialog."""
+        """Show beginner-friendly help dialog with tabs."""
         dialog = tk.Toplevel(self.root)
-        dialog.title("YAML Reference - All Available Settings")
-        dialog.geometry("900x700")
+        dialog.title("Help - How to Create Automations")
+        dialog.geometry("950x750")
         dialog.transient(self.root)
 
         # Create header with yellow background
-        header_frame = tk.Frame(dialog, bg="#FFD700", padx=10, pady=10)
+        header_frame = tk.Frame(dialog, bg="#FFD700", padx=15, pady=15)
         header_frame.pack(fill=tk.X)
-        tk.Label(header_frame, text="📖 YAML Configuration Reference",
-                font=('Segoe UI', 14, 'bold'), bg="#FFD700").pack()
-        tk.Label(header_frame, text="All available settings for game automation workflows",
-                font=('Segoe UI', 10), bg="#FFD700").pack()
+        tk.Label(header_frame, text="Welcome to Workflow Builder!",
+                font=('Segoe UI', 16, 'bold'), bg="#FFD700").pack()
+        tk.Label(header_frame, text="This guide will help you create automations step by step - no coding required!",
+                font=('Segoe UI', 11), bg="#FFD700").pack()
 
-        # Scrollable text widget
-        text_frame = ttk.Frame(dialog)
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Create notebook for tabs
+        notebook = ttk.Notebook(dialog)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        text = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, font=('Consolas', 10))
-        text.pack(fill=tk.BOTH, expand=True)
+        # ==================== TAB 1: GETTING STARTED ====================
+        tab1 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab1, text="Getting Started")
 
-        reference = '''
-# ============================================================================
-# YAML CONFIGURATION REFERENCE
-# ============================================================================
+        getting_started = scrolledtext.ScrolledText(tab1, wrap=tk.WORD, font=('Segoe UI', 11))
+        getting_started.pack(fill=tk.BOTH, expand=True)
+        getting_started.insert(tk.END, '''
+WHAT IS THIS TOOL?
+==================
+This tool helps you automate clicking buttons, typing text, and
+interacting with any application - just like a human would do it!
 
-# METADATA SECTION
-# ----------------
+Think of it like recording your mouse and keyboard actions,
+but smarter - it can find buttons by their text, not just position.
+
+
+HOW IT WORKS (Simple Version)
+=============================
+1. Connect to your target computer (the "SUT" - System Under Test)
+2. Take a screenshot - the tool will find all buttons and text
+3. Click on what you want to automate
+4. Add it as a "step" in your workflow
+5. Repeat until your automation is complete
+6. Save and run!
+
+
+QUICK START - YOUR FIRST AUTOMATION
+====================================
+
+Step 1: Connect to your computer
+   - Enter the IP address (like 192.168.1.100)
+   - Click "Connect"
+   - The dot should turn GREEN
+
+Step 2: Take a screenshot
+   - Click the camera icon or "Capture"
+   - You'll see all the buttons highlighted with boxes
+
+Step 3: Click on a button you want to automate
+   - The tool will detect what text is on it
+   - A dialog will pop up asking what action to take
+
+Step 4: Choose your action
+   - "Find and Click" = Click on this button
+   - "Wait" = Pause for some seconds
+   - "Press Key" = Press Enter, Escape, etc.
+
+Step 5: Add more steps
+   - Repeat steps 2-4 for each action you need
+
+Step 6: Save your workflow
+   - File → Save YAML
+   - Give it a name like "my_automation.yaml"
+
+
+THAT'S IT! You've created an automation!
+''')
+        getting_started.config(state=tk.DISABLED)
+
+        # ==================== TAB 2: ACTION TYPES ====================
+        tab2 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab2, text="Action Types")
+
+        actions_help = scrolledtext.ScrolledText(tab2, wrap=tk.WORD, font=('Segoe UI', 11))
+        actions_help.pack(fill=tk.BOTH, expand=True)
+        actions_help.insert(tk.END, '''
+WHAT ACTIONS CAN I DO?
+======================
+
+CLICKING THINGS
+---------------
+Find and Click    Click on a button or link
+                  Example: Click the "PLAY" button
+
+Right Click       Right-click on something (opens context menu)
+                  Example: Right-click on a file
+
+Double Click      Double-click (like opening a folder)
+                  Example: Double-click an icon to open it
+
+Middle Click      Click with mouse wheel
+                  Example: Open link in new tab
+
+
+KEYBOARD ACTIONS
+----------------
+Press Key         Press a single key
+                  Common keys: enter, escape, tab, space
+                  Arrow keys: up, down, left, right
+                  Function keys: f1, f2, f3... f12
+                  Example: Press "escape" to close a menu
+
+Key Combo         Press multiple keys together
+                  Example: ctrl + s (to save)
+                  Example: alt + f4 (to close)
+                  Example: ctrl + shift + esc (task manager)
+
+Type Text         Type words into a text box
+                  Example: Type "hello@email.com" in login field
+                  Tip: Check "Clear field first" to erase existing text
+
+
+OTHER ACTIONS
+-------------
+Wait              Pause for a number of seconds
+                  Example: Wait 5 seconds for page to load
+
+Scroll            Scroll up or down
+                  Example: Scroll down 3 times to see more content
+
+Drag and Drop     Drag something from one place to another
+                  Example: Drag a file to a folder
+
+Sideload          Run a script or program
+                  Example: Run a PowerShell script to change settings
+                  (Advanced - see "Scripts & Hooks" tab)
+
+
+TIPS FOR CHOOSING ACTIONS
+=========================
+- Most of the time, you'll use "Find and Click"
+- Use "Wait" when the app needs time to load
+- Use "Press Key" for keyboard shortcuts
+- Use "Type Text" only when clicking a text field first
+''')
+        actions_help.config(state=tk.DISABLED)
+
+        # ==================== TAB 3: FINDING ELEMENTS ====================
+        tab3 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab3, text="Finding Elements")
+
+        finding_help = scrolledtext.ScrolledText(tab3, wrap=tk.WORD, font=('Segoe UI', 11))
+        finding_help.pack(fill=tk.BOTH, expand=True)
+        finding_help.insert(tk.END, '''
+HOW DOES THE TOOL FIND BUTTONS?
+===============================
+
+The tool looks at your screen and finds things in two ways:
+
+1. ICONS (buttons, checkboxes, clickable things)
+   - These are things you can click on
+   - Usually have borders or look "button-like"
+
+2. TEXT (labels, titles, any words on screen)
+   - Any text visible on screen
+   - Good for finding menus or labels
+
+
+ELEMENT TYPE - WHAT TO CHOOSE?
+==============================
+
+"icon"     Use this for BUTTONS and CLICKABLE things
+           Example: A "Submit" button, a checkbox, play icon
+
+"text"     Use this for TEXT LABELS (not buttons)
+           Example: A menu item, a heading, any plain text
+
+"any"      Use this if you're not sure
+           The tool will look for both icons and text
+
+
+TEXT MATCHING - HOW STRICT?
+===========================
+
+"contains"    RECOMMENDED - Most flexible!
+              Finds "PLAY" in "PLAY GAME" or "CLICK TO PLAY"
+
+"exact"       Must match exactly (case-sensitive)
+              "Play" won't match "PLAY" or "Play Game"
+
+"startswith"  Must start with your text
+              "Play" matches "Play Game" but not "Click Play"
+
+"endswith"    Must end with your text
+              "Game" matches "Play Game" but not "Game Over"
+
+
+COMMON PROBLEMS AND SOLUTIONS
+=============================
+
+"Element not found"
+   → Try changing "exact" to "contains"
+   → Check for typos in the text
+   → Take a new screenshot - the screen may have changed
+
+"Clicking the wrong thing"
+   → Be more specific with the text
+   → Change from "any" to "icon" or "text"
+   → Use "exact" match if there are similar buttons
+
+"Text has weird characters"
+   → Some fonts look different - type what you SEE
+   → Try just part of the text with "contains"
+''')
+        finding_help.config(state=tk.DISABLED)
+
+        # ==================== TAB 4: TIMING & OPTIONS ====================
+        tab4 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab4, text="Timing & Options")
+
+        timing_help = scrolledtext.ScrolledText(tab4, wrap=tk.WORD, font=('Segoe UI', 11))
+        timing_help.pack(fill=tk.BOTH, expand=True)
+        timing_help.insert(tk.END, '''
+TIMING SETTINGS EXPLAINED
+=========================
+
+Expected Delay (seconds)
+------------------------
+How long to WAIT AFTER this step before doing the next one.
+
+Example: After clicking "Login", wait 3 seconds for the page to load
+         Set Expected Delay = 3
+
+Good values:
+  - Fast apps: 1-2 seconds
+  - Web pages: 3-5 seconds
+  - Slow loading: 5-10 seconds
+
+
+Timeout (seconds)
+-----------------
+How long to KEEP TRYING to find the element before giving up.
+
+Example: Sometimes a button takes time to appear.
+         Set Timeout = 20 to try for 20 seconds before failing.
+
+Good values:
+  - Usually there: 10-20 seconds
+  - Sometimes slow: 30-60 seconds
+  - Very slow: 60-120 seconds
+
+
+OPTIONAL STEP
+=============
+
+What it does:
+  If checked, the automation will CONTINUE even if this step fails.
+
+When to use it:
+  - Pop-ups that don't always appear
+  - "Accept cookies" dialogs
+  - Update notifications
+  - Any "nice to have" click that isn't critical
+
+Example:
+  Step 1: Click "OK" on update popup     [Optional: YES]
+  Step 2: Click "Play" button            [Optional: NO]
+
+  If there's no update popup, Step 1 fails but Step 2 still runs!
+
+
+MOVE DURATION (for clicks)
+==========================
+
+How fast the mouse moves to the target.
+
+  0.1 = Very fast (almost instant)
+  0.3 = Normal (recommended)
+  0.5 = Slow (more human-like)
+  1.0 = Very slow
+
+Tip: Some apps detect "instant" clicks as bots.
+     Use 0.3-0.5 for more reliable clicking.
+''')
+        timing_help.config(state=tk.DISABLED)
+
+        # ==================== TAB 5: SCRIPTS & HOOKS ====================
+        tab5 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab5, text="Scripts & Hooks")
+
+        scripts_help = scrolledtext.ScrolledText(tab5, wrap=tk.WORD, font=('Segoe UI', 11))
+        scripts_help.pack(fill=tk.BOTH, expand=True)
+        scripts_help.insert(tk.END, '''
+ADVANCED: RUNNING SCRIPTS
+=========================
+
+Sometimes you need to run a script or program as part of your
+automation. There are two ways to do this:
+
+
+1. SIDELOAD (Run script AS a step)
+==================================
+
+Use "Sideload" when you want to run a script at a specific point
+in your workflow.
+
+Example: Change screen resolution before starting a game
+
+How to use:
+  1. Add a new step
+  2. Choose "Sideload" as the action type
+  3. Enter the path to your script
+
+Settings:
+  Path:          Full path to your script
+                 Example: C:\\Scripts\\set_resolution.ps1
+
+  Arguments:     Extra options for your script (optional)
+                 Example: -Width, 1920, -Height, 1080
+
+  Timeout:       Max time to wait (default: 300 seconds)
+
+  Wait for completion:
+                 YES = Wait until script finishes
+                 NO  = Start script and move on immediately
+
+  Check exit code:
+                 YES = Fail the step if script has an error
+                 NO  = Continue even if script fails
+
+
+2. HOOKS (Run before/after ALL steps)
+=====================================
+
+Use Hooks when you need scripts to run:
+  - BEFORE the automation starts (Pre-hooks)
+  - AFTER the automation ends (Post-hooks)
+
+To edit hooks: Click the "Hooks" button or Edit → Edit Hooks
+
+PRE-HOOKS (run before Step 1):
+  - Setup scripts
+  - Start recording tools
+  - Clear old log files
+
+POST-HOOKS (run after last step):
+  - Collect results
+  - Stop recording tools
+  - Generate reports
+
+PERSISTENT HOOKS (special):
+  These START before Step 1 and STOP after the last step.
+  Good for: Recording tools, monitoring software
+
+  Example: Start GPU recording → Run all steps → Stop recording
+
+
+SUPPORTED SCRIPT TYPES
+======================
+  .bat    Windows batch file
+  .cmd    Windows command file
+  .ps1    PowerShell script
+  .py     Python script
+  .exe    Any executable program
+''')
+        scripts_help.config(state=tk.DISABLED)
+
+        # ==================== TAB 6: EXAMPLES ====================
+        tab6 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab6, text="Examples")
+
+        examples_help = scrolledtext.ScrolledText(tab6, wrap=tk.WORD, font=('Consolas', 10))
+        examples_help.pack(fill=tk.BOTH, expand=True)
+        examples_help.insert(tk.END, '''
+EXAMPLE 1: Simple App Automation
+================================
+Goal: Open Notepad, type some text, save file
+
+Steps:
+  1. Click "Notepad" icon           [Find and Click]
+  2. Wait 2 seconds                 [Wait]
+  3. Type "Hello World!"            [Type Text]
+  4. Press Ctrl+S                   [Key Combo: ctrl, s]
+  5. Type "myfile.txt"              [Type Text]
+  6. Press Enter                    [Press Key: enter]
+
+
+EXAMPLE 2: Web Login
+====================
+Goal: Log into a website
+
+Steps:
+  1. Click username field           [Find and Click, text: "Username"]
+  2. Type "myemail@test.com"        [Type Text]
+  3. Click password field           [Find and Click, text: "Password"]
+  4. Type "mypassword123"           [Type Text]
+  5. Click "Sign In" button         [Find and Click, text: "Sign In"]
+  6. Wait 5 seconds                 [Wait - for page to load]
+
+
+EXAMPLE 3: Handle Optional Popup
+================================
+Goal: Close a popup IF it appears, then continue
+
+Steps:
+  1. Click "X" close button         [Optional: YES]
+     (This step won't stop automation if popup isn't there)
+  2. Click "Continue" button        [Optional: NO]
+
+
+EXAMPLE 4: With Scripts (Advanced)
+==================================
+Goal: Change resolution, run app, restore resolution
+
+Hooks (Pre):
+  - Run: C:\\Scripts\\set_1080p.bat
+
+Steps:
+  1. Click "My App" icon            [Find and Click]
+  2. Wait 10 seconds                [Wait]
+  3. Click "Start"                  [Find and Click]
+  4. Wait 60 seconds                [Wait - let app run]
+  5. Press Alt+F4                   [Key Combo: alt, f4]
+
+Hooks (Post):
+  - Run: C:\\Scripts\\restore_resolution.bat
+
+
+YAML OUTPUT EXAMPLE
+===================
+This is what your workflow looks like when saved:
+
 metadata:
-  game_name: "Game Title"           # Display name
-  path: "12345"                     # Steam App ID or exe path
-  process_id: "game"                # Process name to wait for
-  process_name: "Game.exe"          # Full process name
-  version: "1.0"                    # Config version
-  benchmark_duration: 120           # Benchmark runtime in seconds
-  startup_wait: 30                  # Wait after game launch
-  resolution: "1920x1080"           # Target resolution
-  preset: "High"                    # Graphics preset name
-  engine: "Unreal Engine 5"         # Game engine
-  graphics_api: "DirectX 12"        # Graphics API
+  game_name: "My Automation"
+  version: "1.0"
 
-# HOOKS SECTION (NEW!)
-# --------------------
-hooks:
-  pre:
-    # Non-persistent hook (runs and waits before step 1)
-    - path: "C:\\Scripts\\setup.bat"
-      args: ["--profile", "gaming"]
-      timeout: 30
-      working_dir: "C:\\Scripts"
-
-    # Persistent hook (starts before step 1, stops after last step)
-    - path: "C:\\Tools\\trace.exe"
-      args: ["--output", "C:\\Logs\\trace.etl"]
-      persistent: true              # KEY: Runs throughout automation
-
-  post:
-    # Runs after all steps complete
-    - path: "C:\\Scripts\\collect.py"
-      args: ["--run-id", "test123"]
-      timeout: 60
-
-# STEPS SECTION
-# -------------
 steps:
   1:
-    description: "Step description"
-    optional: false                 # If true, failure won't stop workflow
-    expected_delay: 2               # Wait after step (seconds)
-    timeout: 20                     # Max time to find element
-
-    # FIND ELEMENT (for click/keyboard actions)
+    description: "Click Play button"
     find:
-      type: "icon"                  # icon, text, or any
-      text: "PLAY"                  # Text to match
-      text_match: "contains"        # contains, exact, startswith, endswith
-
-    # ACTION TYPE: click
+      type: "icon"
+      text: "PLAY"
+      text_match: "contains"
     action:
       type: "click"
-      button: "left"                # left, right, middle
-      move_duration: 0.3            # Mouse move time
-      click_delay: 0.1              # Delay before click
-      offset_x: 0                   # Pixel offset from center
-      offset_y: 0
+      button: "left"
+    expected_delay: 2
+    timeout: 20
 
-    # ACTION TYPE: double_click / right_click / middle_click
-    action:
-      type: "double_click"          # or right_click, middle_click
-
-    # ACTION TYPE: key (single key press)
-    action:
-      type: "key"
-      key: "enter"                  # Key name (enter, escape, f1, etc.)
-
-    # ACTION TYPE: hotkey (key combination)
-    action:
-      type: "hotkey"
-      keys: ["ctrl", "s"]           # Keys to press together
-
-    # ACTION TYPE: text (type text)
-    action:
-      type: "text"
-      text: "Hello World"           # Text to type
-      clear_first: false            # Ctrl+A before typing
-      char_delay: 0.05              # Delay between characters
-
-    # ACTION TYPE: scroll
-    action:
-      type: "scroll"
-      direction: "down"             # up or down
-      clicks: 3                     # Number of scroll clicks
-
-    # ACTION TYPE: drag
-    action:
-      type: "drag"
-      dest_x: 500                   # Drop X coordinate
-      dest_y: 300                   # Drop Y coordinate
-      duration: 1.0                 # Drag duration
-
-    # ACTION TYPE: wait
+  2:
+    description: "Wait for loading"
     action:
       type: "wait"
-      duration: 10                  # Seconds to wait
+      duration: 5
+    expected_delay: 0
 
-    # ACTION TYPE: sideload (NEW!)
+  3:
+    description: "Press Enter to continue"
     action:
-      type: "sideload"
-      path: "C:\\Scripts\\configure.ps1"    # Script path
-      args: ["-Width", "1920"]              # Arguments
-      timeout: 300                          # Max execution time
-      wait_for_completion: true             # Block until done
-      check_exit_code: true                 # Fail on non-zero exit
-      working_dir: "C:\\Scripts"            # Working directory
-      shell: false                          # Run in shell (auto-detect)
+      type: "key"
+      key: "enter"
+    expected_delay: 2
+''')
+        examples_help.config(state=tk.DISABLED)
 
-    # VERIFICATION (optional)
-    verify_success:
-      - type: "icon"
-        text: "Main Menu"
-        text_match: "contains"
+        # ==================== TAB 7: TROUBLESHOOTING ====================
+        tab7 = ttk.Frame(notebook, padding=15)
+        notebook.add(tab7, text="Troubleshooting")
 
-# FALLBACKS SECTION
-# -----------------
-fallbacks:
-  general:
-    action: "key"
-    key: "escape"
-    expected_delay: 1
+        trouble_help = scrolledtext.ScrolledText(tab7, wrap=tk.WORD, font=('Segoe UI', 11))
+        trouble_help.pack(fill=tk.BOTH, expand=True)
+        trouble_help.insert(tk.END, '''
+COMMON PROBLEMS & SOLUTIONS
+===========================
 
-# ============================================================================
-# HOOK FIELDS REFERENCE
-# ============================================================================
-# path:        (required) Path to executable (.py, .bat, .ps1, .exe, .cmd)
-# args:        (optional) List of command line arguments
-# timeout:     (optional) Max seconds to wait (default: 300)
-# working_dir: (optional) Working directory (default: parent of path)
-# persistent:  (optional) If true, runs throughout automation (pre-hooks only)
-# shell:       (optional) Run in shell (auto-detected from extension)
 
-# ============================================================================
-# SIDELOAD FIELDS REFERENCE
-# ============================================================================
-# path:                (required) Path to executable
-# args:                (optional) List of command line arguments
-# timeout:             (optional) Max seconds to wait (default: 300)
-# wait_for_completion: (optional) Block until done (default: true)
-# check_exit_code:     (optional) Fail step if non-zero exit (default: true)
-# working_dir:         (optional) Working directory
-# shell:               (optional) Run in shell (auto-detected)
-'''
-        text.insert(tk.END, reference)
-        text.config(state=tk.DISABLED)
+PROBLEM: "Cannot connect to SUT"
+--------------------------------
+The connection dot stays RED.
+
+Solutions:
+  1. Check the IP address is correct
+  2. Make sure the SUT service is running on the target computer
+  3. Check firewall isn't blocking port 8080
+  4. Try pinging the IP: Open CMD, type "ping 192.168.x.x"
+
+
+PROBLEM: "Element not found"
+----------------------------
+The automation can't find a button or text.
+
+Solutions:
+  1. Take a NEW screenshot - the screen may have changed
+  2. Check for typos in the text you're looking for
+  3. Try "contains" instead of "exact" matching
+  4. Try "any" instead of "icon" for element type
+  5. Increase the Timeout value (try 30-60 seconds)
+  6. Make sure the button is actually visible on screen
+
+
+PROBLEM: "Clicking the wrong button"
+------------------------------------
+There are multiple buttons with similar text.
+
+Solutions:
+  1. Use more of the text (e.g., "Play Game" instead of "Play")
+  2. Use "exact" matching instead of "contains"
+  3. Check if you should use "icon" instead of "text" type
+
+
+PROBLEM: "Automation is too fast"
+---------------------------------
+Steps run before the app is ready.
+
+Solutions:
+  1. Increase "Expected Delay" after slow steps
+  2. Add "Wait" steps between actions
+  3. Increase "Timeout" so it waits longer for elements
+
+
+PROBLEM: "Automation stops on optional popup"
+---------------------------------------------
+A popup that doesn't always appear causes failure.
+
+Solutions:
+  1. Check "Optional Step" for that step
+  2. This way, if the popup isn't there, it continues anyway
+
+
+PROBLEM: "Script/Sideload doesn't run"
+--------------------------------------
+Your external script isn't executing.
+
+Solutions:
+  1. Check the full path is correct (use \\\\ for backslashes)
+  2. Make sure the script exists on the TARGET computer (not yours)
+  3. Try running the script manually first to test it
+  4. Check the script has the right permissions
+
+
+PROBLEM: "Test works but Flow doesn't"
+--------------------------------------
+Individual steps work but full automation fails.
+
+Solutions:
+  1. Add more "Wait" time between steps
+  2. The app might be in a different state during full run
+  3. Check if earlier steps change something for later steps
+
+
+STILL STUCK?
+============
+  1. Try breaking your automation into smaller pieces
+  2. Test each step individually with the "Test" button
+  3. Look at the log output for error messages
+  4. Take fresh screenshots at each step to see what's happening
+''')
+        trouble_help.config(state=tk.DISABLED)
 
         # Close button
-        ttk.Button(dialog, text="Close", command=dialog.destroy).pack(pady=10)
+        close_frame = ttk.Frame(dialog)
+        close_frame.pack(fill=tk.X, pady=10)
+        ttk.Button(close_frame, text="Close", command=dialog.destroy, width=15).pack()
 
     def new_workflow(self):
         """Create new workflow."""
