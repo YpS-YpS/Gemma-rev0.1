@@ -2346,8 +2346,23 @@ class WorkflowBuilderGUI:
         tk.Label(header_frame, text="Create automations step by step - no coding required!",
                 font=('Segoe UI', 11), bg="#FFD700").pack()
 
+        # Style the tabs to be more visible and beginner-friendly
+        style = ttk.Style()
+        style.configure("Help.TNotebook", background="#f0f0f0")
+        style.configure("Help.TNotebook.Tab",
+                        padding=[12, 8],
+                        font=('Segoe UI', 10, 'bold'),
+                        background="#e0e0e0",
+                        borderwidth=2,
+                        relief="solid")
+        style.map("Help.TNotebook.Tab",
+                  background=[("selected", "#90EE90"),  # Light green when selected
+                              ("active", "#b0e0b0")],   # Slightly darker on hover
+                  foreground=[("selected", "#000000")],
+                  expand=[("selected", [2, 2, 2, 0])])  # Make selected tab slightly larger
+
         # Create notebook for tabs
-        notebook = ttk.Notebook(dialog)
+        notebook = ttk.Notebook(dialog, style="Help.TNotebook")
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # ==================== TAB 1: GETTING STARTED ====================
