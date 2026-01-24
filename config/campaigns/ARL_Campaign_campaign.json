@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "campaign_name": "ARL_Campaign",
+  "delay_between_games": 120,
+  "games": [
+    {
+      "game_name": "Counter-Strike 2",
+      "config_path": "config/games\\cs2_simple_rev2.yaml",
+      "game_path": "730",
+      "run_count": 1,
+      "run_delay": 30
+    },
+    {
+      "game_name": "Black Myth Wukong",
+      "config_path": "config/games\\bmw.yaml",
+      "game_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Black Myth Wukong Benchmark Tool\\b1\\Binaries\\Win64\\b1-Win64-Shipping.exe",
+      "run_count": 1,
+      "run_delay": 30
+    }
+  ]
+}

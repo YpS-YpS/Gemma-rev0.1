@@ -1,0 +1,128 @@
+metadata:
+  game_name: Mirage
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2025-11-07 03:42:31'
+  path: C:\Program Files (x86)\Steam\steamapps\common\Assassin's Creed Mirage\ACMirage.exe
+  process_id: ACMirage
+  process_name: ACMirage
+  benchmark_name: Built-in Benchmark
+  benchmark_duration: 200
+  startup_wait: 90
+  resolution: 1920x1080
+  preset: High
+  engine: AnvilNext 2.0
+  graphics_api: DirectX 12
+steps:
+  1:
+    description: Press Any Key - to start
+    find:
+      type: any
+      text: Press any key
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    optional: true
+    expected_delay: 10
+    timeout: 20
+  2:
+    description: '[OPTIONAL] SERVER DISCONNECTION'
+    find:
+      type: any
+      text: Reconnect
+      text_match: contains
+    action:
+      type: key
+      key: space
+    optional: true
+    expected_delay: 2
+    timeout: 20
+  3:
+    description: Click benchmark
+    find:
+      type: any
+      text: Benchmark
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 2
+    timeout: 20
+  4:
+    description: confirm step to start benchmark - KB HIT SPACE BAR
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: space
+    expected_delay: 2
+    timeout: 20
+  5:
+    description: WAIT FOR BENCHMARK TO COMPLETE
+    action:
+      type: wait
+      duration: 150
+    expected_delay: 2
+    timeout: 20
+  6:
+    description: CLOSE ON RESULT PAGE
+    find:
+      type: any
+      text: Close
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 20
+    timeout: 20
+  7:
+    description: PRESS ANY KEY ON START SCREEN
+    find:
+      type: any
+      text: Press any key
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 5
+    timeout: 20
+  8:
+    description: CLICK QUIT TO DESKTOP
+    find:
+      type: any
+      text: Quit to Desktop
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 2
+    timeout: 20
+  9:
+    description: CONFIRM QUIT TO DESKTOP
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: space
+    expected_delay: 2
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 1

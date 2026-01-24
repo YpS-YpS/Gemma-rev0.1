@@ -1,0 +1,34 @@
+{
+    "version": "1.0",
+    "settings": {
+        "request_timeout": 120,
+        "health_check_interval": 30,
+        "max_consecutive_failures": 3,
+        "max_queue_size": 100,
+        "recovery_check_interval": 10
+    },
+    "servers": [
+        {
+            "name": "Omniparser-1",
+            "url": "http://localhost:8000"
+        },
+        {
+            "name": "Omniparser-2",
+            "url": "http://192.168.50.241:8000"
+        },
+        {
+            "name": "Omniparser-3",
+            "url": "http://localhost:8001"
+        },
+        {
+            "name": "Omniparser-4",
+            "url": "http://192.168.50.241:8001"
+        },
+        {
+            "name": "Omniparser-5",
+            "url": "http://localhost:8002"
+        }
+        
+        
+    ]
+}

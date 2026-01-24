@@ -1,0 +1,74 @@
+# cs2_simple_steps.yaml
+metadata:
+  game_name: "Counter-Strike 2"
+  path: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\cs2.exe"
+  version: "1.0"
+  benchmark_duration: 110
+  startup_wait: 30
+  resolution: "1920x1080"
+  preset: "High"
+  
+
+# Simple step-by-step workflow
+steps:
+  1:
+    description: "Click PLAY button from main menu"
+    find_and_click:
+      type: "icon"
+      text: "PLAY"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "MATCHMAKING"
+      - type: "icon"
+        text: "WORKSHOP MAPS"
+    expected_delay: 2
+    timeout: 20
+    
+  2:
+    description: "Click WORKSHOP MAPS to open workshop browser"
+    find_and_click:
+      type: "icon"
+      text: "WORKSHOP MAPS"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Filter Maps"
+    expected_delay: 5
+    timeout: 20
+    
+  3:
+    description: "Click CS2 FPS Bench map"
+    find_and_click:
+      type: "icon"
+      text: "CS2 FPS Bench"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "GO "
+    expected_delay: 5
+    timeout: 20
+    
+  4:
+    description: "Click GO to start benchmark"
+    find_and_click:
+      type: "icon"
+      text: "GO "
+      text_match: "contains"
+    verify_success: [loading]  # No specific elements to verify during loading
+    expected_delay: 3
+    timeout: 20
+    
+  5:
+    description: "Wait for benchmark to run"
+    action: "wait"
+    duration: 110
+    timeout: 120
+
+# Fallback actions
+fallbacks:
+  general:
+    action: "key"
+    key: "Escape"
+    expected_delay: 1
+    max_retries: 3

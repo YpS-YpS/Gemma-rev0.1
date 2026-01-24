@@ -1,0 +1,130 @@
+metadata:
+  game_name: Shadow of the Tomb Raider
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2025-11-04 03:34:10'
+  path: C:\Program Files (x86)\Steam\steamapps\common\Shadow of the Tomb Raider\sottr.exe
+  process_id: sottr
+  process_name: sottr.exe
+  benchmark_name: Built-in Benchmark
+  benchmark_duration: 120
+  startup_wait: 30
+  resolution: 1920x1080
+  preset: High
+  graphics_api: DirectX 11
+steps:
+  1:
+    description: click play
+    find:
+      type: any
+      text: Play
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 19
+    timeout: 20
+  2:
+    description: click options
+    find:
+      type: any
+      text: OPTIONS
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 4
+    timeout: 20
+  3:
+    description: click on display and graphics
+    find:
+      type: any
+      text: GRAPHICS
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 4
+    timeout: 20
+  4:
+    description: click on Run Benchmark to start the benchmark
+    find:
+      type: any
+      text: '[R] RUN BENCHMARK'
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 4
+    timeout: 20
+  5:
+    description: wait post benchmark - 210 seconds
+    action:
+      type: wait
+      duration: 210
+    expected_delay: 4
+    timeout: 20
+  6:
+    description: 'Click on [Esc] Close to go back '
+    find:
+      type: any
+      text: '[Esc]CLOSE'
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 4
+    timeout: 20
+  7:
+    description: Click on Esc Close to go back
+    find:
+      type: any
+      text: '[ESC] CLOSE'
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 4
+    timeout: 20
+  8:
+    description: Click on quit game
+    find:
+      type: any
+      text: QUIT GAME
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 6
+    timeout: 20
+  9:
+    description: for hit yes at the quit game confirmation
+    find:
+      type: any
+      text: Quit game?
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    optional: true
+    expected_delay: 4
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 1

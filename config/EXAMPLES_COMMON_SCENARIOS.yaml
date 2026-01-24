@@ -1,0 +1,579 @@
+# ============================================================================
+# COMMON SCENARIOS - PRACTICAL EXAMPLES
+# Real-world automation patterns you can copy and adapt
+# ============================================================================
+
+# ============================================================================
+# SCENARIO 1: GAME BENCHMARK AUTOMATION
+# Navigate to benchmark, run it, wait for completion
+# ============================================================================
+metadata:
+  game_name: "Example FPS Game"
+  path: "C:\\Games\\Example\\game.exe"
+  process_id: "game.exe"
+  benchmark_duration: 120
+  startup_wait: 30
+  resolution: "1920x1080"
+
+steps:
+  # Step 1: From main menu, click Play
+  1:
+    description: "Click PLAY from main menu"
+    find_and_click:
+      type: "icon"
+      text: "PLAY"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Multiplayer"
+    expected_delay: 2
+    timeout: 20
+
+  # Step 2: Open settings menu
+  2:
+    description: "Open settings"
+    find_and_click:
+      type: "icon"
+      text: "Settings"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Graphics"
+    expected_delay: 3
+    timeout: 15
+
+  # Step 3: Navigate to benchmark
+  3:
+    description: "Click benchmark option"
+    find_and_click:
+      type: "icon"
+      text: "Benchmark"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Start Benchmark"
+    expected_delay: 2
+    timeout: 15
+
+  # Step 4: Start benchmark
+  4:
+    description: "Start benchmark test"
+    find_and_click:
+      type: "icon"
+      text: "Start"
+      text_match: "contains"
+    verify_success: [loading]
+    expected_delay: 3
+    timeout: 20
+
+  # Step 5: Wait for benchmark
+  5:
+    description: "Wait for benchmark to complete"
+    action: "wait"
+    duration: 120
+    verify_success: [loading]
+    timeout: 125
+
+  # Step 6: Close results
+  6:
+    description: "Close benchmark results"
+    find_and_click:
+      type: "icon"
+      text: "Close"
+      text_match: "contains"
+    verify_success: []
+    expected_delay: 2
+    timeout: 15
+
+fallbacks:
+  general:
+    action: "key"
+    key: "escape"
+    expected_delay: 1
+
+# ============================================================================
+# SCENARIO 2: GRAPHICS SETTINGS ADJUSTMENT
+# Navigate to graphics settings and change options
+# ============================================================================
+---
+metadata:
+  game_name: "Graphics Settings Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Open main menu with Escape"
+    action:
+      type: "key"
+      key: "escape"
+    verify_success:
+      - type: "icon"
+        text: "Settings"
+    expected_delay: 1
+    timeout: 10
+
+  2:
+    description: "Navigate to graphics settings"
+    find_and_click:
+      type: "any"
+      text: "Graphics"
+      text_match: "contains"
+    verify_success:
+      - type: "text"
+        text: "Resolution"
+    expected_delay: 2
+    timeout: 15
+
+  3:
+    description: "Scroll down to find quality preset"
+    action:
+      type: "scroll"
+      direction: "down"
+      clicks: 5
+      x: 960
+      y: 540
+    verify_success: []
+    expected_delay: 1
+    timeout: 5
+
+  4:
+    description: "Click quality preset dropdown"
+    find_and_click:
+      type: "icon"
+      text: "Quality"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "High"
+    expected_delay: 1
+    timeout: 10
+
+  5:
+    description: "Select High preset"
+    find_and_click:
+      type: "icon"
+      text: "High"
+      text_match: "exact"
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+  6:
+    description: "Apply settings"
+    find_and_click:
+      type: "icon"
+      text: "Apply"
+      text_match: "contains"
+    verify_success: []
+    expected_delay: 2
+    timeout: 15
+
+# ============================================================================
+# SCENARIO 3: HANDLING POPUPS AND INTERRUPTIONS
+# Deal with ads, tutorials, and unexpected dialogs
+# ============================================================================
+---
+metadata:
+  game_name: "Popup Handler Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Launch game and wait for main menu"
+    action: "wait"
+    duration: 10
+    verify_success:
+      - type: "icon"
+        text: "Play"
+    timeout: 30
+
+  2:
+    description: "Start game"
+    find_and_click:
+      type: "icon"
+      text: "Play"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Continue"
+    expected_delay: 3
+    timeout: 20
+
+optional_steps:
+  # Handle daily reward popup
+  daily_reward:
+    description: "Close daily reward popup"
+    trigger:
+      type: "icon"
+      text: "Claim"
+      text_match: "contains"
+    action:
+      type: "sequence"
+      actions:
+        - type: "click"
+        - type: "wait"
+          duration: 2
+        - type: "key"
+          key: "escape"
+    max_checks: 5
+    priority: 1
+
+  # Handle update notification
+  update_notification:
+    description: "Dismiss update notification"
+    trigger:
+      type: "text"
+      text: "Update Available"
+      text_match: "contains"
+    action:
+      type: "click"  # Clicks on "Close" or "Later" button
+    max_checks: 3
+    priority: 2
+
+  # Handle any "OK" dialog
+  generic_ok_dialog:
+    description: "Click OK on any dialog"
+    trigger:
+      type: "icon"
+      text: "OK"
+      text_match: "exact"
+    action:
+      type: "click"
+    max_checks: 10
+    priority: 3
+
+# ============================================================================
+# SCENARIO 4: MULTI-STEP LOGIN SEQUENCE
+# Login with username, password, and 2FA
+# ============================================================================
+---
+metadata:
+  game_name: "Login Example"
+  path: "C:\\Games\\Example\\launcher.exe"
+
+steps:
+  1:
+    description: "Click username field"
+    find_and_click:
+      type: "icon"
+      text: "Username"
+      text_match: "contains"
+    verify_success: []
+    expected_delay: 0.5
+    timeout: 10
+
+  2:
+    description: "Type username"
+    action:
+      type: "text"
+      text: "player123"
+      char_delay: 0.05
+      clear_first: true
+    verify_success: []
+    expected_delay: 0.5
+    timeout: 5
+
+  3:
+    description: "Move to password field with Tab"
+    action:
+      type: "key"
+      key: "tab"
+    verify_success: []
+    expected_delay: 0.5
+    timeout: 5
+
+  4:
+    description: "Type password"
+    action:
+      type: "text"
+      text: "secretpassword"
+      char_delay: 0.05
+    verify_success: []
+    expected_delay: 0.5
+    timeout: 5
+
+  5:
+    description: "Submit with Enter key"
+    action:
+      type: "key"
+      key: "enter"
+    verify_success:
+      - type: "text"
+        text: "Welcome"
+    expected_delay: 3
+    timeout: 20
+
+# ============================================================================
+# SCENARIO 5: WORKSHOP MAP SELECTION (STEAM GAMES)
+# Navigate through Steam Workshop interface
+# ============================================================================
+---
+metadata:
+  game_name: "Steam Workshop Example"
+  path: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Game\\game.exe"
+
+steps:
+  1:
+    description: "Open Play menu"
+    find_and_click:
+      type: "icon"
+      text: "PLAY"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "WORKSHOP"
+    expected_delay: 2
+    timeout: 20
+
+  2:
+    description: "Click Workshop Maps"
+    find_and_click:
+      type: "icon"
+      text: "WORKSHOP MAPS"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Filter"
+    expected_delay: 5
+    timeout: 20
+
+  3:
+    description: "Search for specific map"
+    find_and_click:
+      type: "icon"
+      text: "FPS Benchmark"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "GO"
+    expected_delay: 3
+    timeout: 20
+
+  4:
+    description: "Start map"
+    find_and_click:
+      type: "icon"
+      text: "GO"
+      text_match: "contains"
+    verify_success: [loading]
+    expected_delay: 5
+    timeout: 30
+
+# ============================================================================
+# SCENARIO 6: CONDITIONAL NAVIGATION
+# Different paths based on what's on screen
+# ============================================================================
+---
+metadata:
+  game_name: "Conditional Logic Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Check for and handle first-time setup"
+    action:
+      type: "conditional"
+      check_element:
+        type: "icon"
+        text: "Skip Tutorial"
+        text_match: "contains"
+      if_found:
+        type: "sequence"
+        actions:
+          - type: "click"
+          - type: "wait"
+            duration: 1
+          - type: "key"
+            key: "enter"
+      if_not_found:
+        type: "wait"
+        duration: 1
+    verify_success: []
+    expected_delay: 2
+    timeout: 15
+
+  2:
+    description: "Navigate to main menu"
+    find_and_click:
+      type: "any"
+      text: "Continue"
+      text_match: "contains"
+    verify_success:
+      - type: "icon"
+        text: "Play"
+    expected_delay: 2
+    timeout: 20
+
+# ============================================================================
+# SCENARIO 7: DRAG AND DROP CUSTOMIZATION
+# Rearrange UI elements or inventory items
+# ============================================================================
+---
+metadata:
+  game_name: "Drag and Drop Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Open inventory"
+    action:
+      type: "key"
+      key: "i"
+    verify_success:
+      - type: "text"
+        text: "Inventory"
+    expected_delay: 1
+    timeout: 10
+
+  2:
+    description: "Find item to move"
+    find_element:
+      type: "icon"
+      text: "Sword"
+      text_match: "contains"
+    action:
+      type: "drag"
+      # Start from found element
+      end_x: 800
+      end_y: 400
+      duration: 1.0
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+  3:
+    description: "Close inventory"
+    action:
+      type: "key"
+      key: "escape"
+    verify_success: []
+    expected_delay: 1
+    timeout: 5
+
+# ============================================================================
+# SCENARIO 8: RIGHT-CLICK CONTEXT MENUS
+# Use right-click menus for actions
+# ============================================================================
+---
+metadata:
+  game_name: "Context Menu Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Right-click on character"
+    find_and_click:
+      type: "icon"
+      text: "Player"
+      text_match: "contains"
+    action:
+      type: "right_click"
+    verify_success:
+      - type: "icon"
+        text: "Inspect"
+    expected_delay: 1
+    timeout: 10
+
+  2:
+    description: "Select inspect option"
+    find_and_click:
+      type: "icon"
+      text: "Inspect"
+      text_match: "exact"
+    verify_success:
+      - type: "text"
+        text: "Character Info"
+    expected_delay: 2
+    timeout: 15
+
+# ============================================================================
+# SCENARIO 9: COMPLEX SEQUENCE WITH ERROR RECOVERY
+# Multiple actions with fallback handling
+# ============================================================================
+---
+metadata:
+  game_name: "Error Recovery Example"
+  path: "C:\\Games\\Example\\game.exe"
+
+steps:
+  1:
+    description: "Attempt to connect to server"
+    action:
+      type: "sequence"
+      delay_between: 1
+      actions:
+        - type: "click"
+          x: 960
+          y: 540
+        - type: "wait"
+          duration: 2
+        - type: "key"
+          key: "enter"
+    verify_success:
+      - type: "text"
+        text: "Connected"
+    expected_delay: 5
+    timeout: 30
+
+fallbacks:
+  general:
+    action: "key"
+    key: "escape"
+    expected_delay: 2
+    max_retries: 5
+
+optional_steps:
+  connection_error:
+    description: "Handle connection error"
+    trigger:
+      type: "text"
+      text: "Connection Failed"
+      text_match: "contains"
+    action:
+      type: "sequence"
+      actions:
+        - type: "key"
+          key: "escape"
+        - type: "wait"
+          duration: 3
+    max_checks: 3
+    priority: 1
+
+# ============================================================================
+# TIPS FOR ADAPTING THESE EXAMPLES
+# ============================================================================
+
+# 1. ADJUST COORDINATES
+#    - Screen coordinates depend on your resolution
+#    - For 1920x1080, center is (960, 540)
+#    - For 2560x1440, center is (1280, 720)
+
+# 2. TIMING ADJUSTMENTS
+#    - Slower systems need longer timeouts
+#    - Faster systems can use shorter delays
+#    - Network games need more generous timeouts
+
+# 3. TEXT MATCHING
+#    - Use "contains" for flexibility
+#    - Use "exact" when you need precision
+#    - Check capitalization in game UI
+
+# 4. ELEMENT TYPES
+#    - Try "any" first if unsure
+#    - Use "icon" for clickable buttons
+#    - Use "text" for labels and info
+
+# 5. VERIFICATION STRATEGY
+#    - Verify important state changes
+#    - Use [] for actions with no visible result
+#    - Use [loading] for loading screens
+
+# 6. OPTIONAL STEPS
+#    - Add handlers for common popups
+#    - Set appropriate priorities
+#    - Don't check too frequently (max_checks)
+
+# 7. FALLBACKS
+#    - Usually Escape key works well
+#    - Adjust max_retries based on reliability
+#    - Consider game-specific recovery actions

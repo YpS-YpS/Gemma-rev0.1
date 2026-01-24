@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "campaign_name": "Default",
+  "delay_between_games": 120,
+  "continue_on_failure": true,
+  "games": [
+    {
+      "game_name": "Counter-Strike 2",
+      "config_path": "config/games\\Counter Strike 2 -v1.yaml",
+      "game_path": "730",
+      "run_count": 1,
+      "run_delay": 30
+    },
+    {
+      "game_name": "Cyberpunk2077",
+      "config_path": "config/games\\cyberpunk2077.yaml",
+      "game_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe",
+      "run_count": 1,
+      "run_delay": 30
+    }
+  ]
+}

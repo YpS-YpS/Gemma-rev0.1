@@ -1,0 +1,92 @@
+# CS2 Benchmark Configuration - Fixed States
+metadata:
+  game_name: "Counter-Strike 2"
+  version: "1.0"
+  benchmark_duration: 110
+  startup_wait: 30
+
+initial_state: "main_menu"
+target_state: "benchmark_complete"
+
+# State definitions
+states:
+  main_menu:
+    description: "CS2 Main Menu with PLAY button"
+    required_elements:
+      - type: "icon"
+        text: "INVENTORY"
+        text_match: "contains"
+      - type: "icon"
+        text: "PLAY"
+        text_match: "contains"
+    timeout: 30
+
+  play_menu:
+    description: "Play menu screen with MATCHMAKING and WORKSHOP MAPS buttons"
+    required_elements:
+      - type: "icon"
+        text: "MATCHMAKING"
+        text_match: "contains"
+      - type: "icon"
+        text: "WORKSHOP MAPS"
+        text_match: "contains"
+    timeout: 20
+
+  workshop_maps_browser:
+    description: "Workshop maps browser screen (after clicking WORKSHOP MAPS)"
+    required_elements:
+      - type: "icon"
+        text: "Filter Maps"
+        text_match: "contains"
+    timeout: 30
+
+  map_selection:
+    description: "Map selection with GO button"
+    required_elements:
+      - type: "icon"
+        text: "GO"
+        text_match: "exact"
+    timeout: 30
+
+# Transitions
+transitions:
+  # From main_menu to play_menu
+  "main_menu->play_menu":
+    action: "click"
+    target:
+      type: "icon"
+      text: "PLAY"
+      text_match: "contains"
+    expected_delay: 2
+
+  # From play_menu to workshop_maps_browser (renamed!)
+  "play_menu->workshop_maps_browser":
+    action: "click"
+    target:
+      type: "icon"
+      text: "WORKSHOP MAPS"
+      text_match: "contains"
+    expected_delay: 3
+
+  # From workshop_maps_browser to map_selection
+  "workshop_maps_browser->map_selection":
+    action: "click"
+    target:
+      type: "icon"
+      text: "CS2 FPS BE"
+      text_match: "contains"
+    expected_delay: 2
+
+# Fallback actions
+fallbacks:
+  general:
+    action: "key"
+    key: "Escape"
+    expected_delay: 1
+    max_retries: 3
+
+  benchmark_running:
+    action: "key"
+    key: "Escape"
+    expected_delay: 2
+    max_retries: 5

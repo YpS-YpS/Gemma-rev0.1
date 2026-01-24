@@ -1,0 +1,130 @@
+# CS2 Benchmark Configuration
+metadata:
+  game_name: "Counter-Strike 2"
+  version: "1.0"
+  benchmark_duration: 110
+  resolution: "1920x1080"
+  startup_wait: 30
+
+initial_state: "main_menu"
+target_state: "benchmark_complete"
+
+# Definitions of UI states and their identifying elements
+states:
+  initial:
+    description: "Initial loading state"
+    required_elements: []
+    timeout: 60
+
+  main_menu:
+    description: "CS2 Main Menu before clicking PLAY"
+    required_elements:
+      - type: "any"
+        text: "PLAY"
+        text_match: "contains"
+
+  play_menu:
+    description: "Play menu screen with WORKSHOP MAPS visible"
+    required_elements:
+      - type: "any"
+        text: "WORKSHOP MAPS"
+        text_match: "contains"
+    timeout: 20
+
+  workshop_maps:
+    description: "Workshop maps selection screen"
+    required_elements:
+      - type: "any"
+        text: "Filter Maps"
+        text_match: "contains"
+      - type: "any"
+        text: "CS2 FPS Bench"
+        text_match: "contains"
+    timeout: 30
+
+  map_selection:
+    description: "Map selection with GO button"
+    required_elements:
+      - type: "any"
+        text: "GO"
+        text_match: "exact"
+    timeout: 30
+
+  loading_benchmark:
+    description: "Loading benchmark map"
+    required_elements: []
+    timeout: 60
+
+  benchmark_running:
+    description: "Benchmark is currently running"
+    required_elements: []
+    timeout: 120
+
+  benchmark_complete:
+    description: "Benchmark has completed"
+    required_elements: []
+    timeout: 10
+
+# State transition definitions
+transitions:
+  # From main_menu to play_menu
+  "main_menu->play_menu":
+    action: "click"
+    target:
+      type: "any"
+      text: "PLAY"
+      text_match: "contains"
+    expected_delay: 2
+
+  # From play_menu to workshop_maps
+  "play_menu->workshop_maps":
+    action: "click"
+    target:
+      type: "any"
+      text: "WORKSHOP MAPS"
+      text_match: "contains"
+    expected_delay: 3
+
+  # From workshop_maps to map_selection
+  "workshop_maps->map_selection":
+    action: "click"
+    target:
+      type: "any"
+      text: "CS2 FPS Bench"
+      text_match: "contains"
+    expected_delay: 2
+
+  # From map_selection to loading_benchmark
+  "map_selection->loading_benchmark":
+    action: "click"
+    target:
+      type: "any"
+      text: "GO"
+      text_match: "exact"
+    expected_delay: 5
+
+  # From loading_benchmark to benchmark_running
+  "loading_benchmark->benchmark_running":
+    action: "wait"
+    duration: 10
+    expected_delay: 10
+
+  # From benchmark_running to benchmark_complete
+  "benchmark_running->benchmark_complete":
+    action: "wait"
+    duration: 110
+    expected_delay: 0
+
+# Fallback actions for error recovery
+fallbacks:
+  general:
+    action: "key"
+    key: "Escape"
+    expected_delay: 1
+    max_retries: 3
+
+  benchmark_running:
+    action: "key"
+    key: "Escape"
+    expected_delay: 2
+    max_retries: 5

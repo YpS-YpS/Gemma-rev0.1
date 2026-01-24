@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "shared_settings": {
+    "vision_model": "omniparser",
+    "omniparser_url": "http://localhost:9000",
+    "lm_studio_url": "http://127.0.0.1:1234",
+    "max_iterations": 50
+  },
+  "suts": [
+    {
+      "name": "Razer-Blade",
+      "ip": "192.168.50.217",
+      "port": 8080,
+      "config_path": "config/games\\cs2_simple_rev2.yaml",
+      "game_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\cs2.exe",
+      "run_count": 3,
+      "run_delay": 30
+    }
+  ]
+}

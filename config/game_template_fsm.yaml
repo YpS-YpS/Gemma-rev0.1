@@ -1,0 +1,112 @@
+# Generic Game Benchmark Template
+# Use this as a base for creating game-specific benchmark configurations
+
+metadata:
+  game_name: "Generic Game"
+  version: "1.0"
+  benchmark_duration: 120  # Expected seconds for benchmark to run
+  resolution: "1920x1080"  # Target resolution for coordinates
+  startup_wait: 30  # Seconds to wait after launching game
+
+initial_state: "main_menu"
+target_state: "benchmark_complete"
+
+# Define all UI states the automation will navigate through
+states:
+  main_menu:
+    description: "Main menu screen"
+    required_elements:
+      - type: "any"  # button, label, or any
+        text: "Play"
+        text_match: "contains"  # exact, contains, startswith, endswith
+        required_confidence: 0.7
+    timeout: 30  # Seconds before timeout recovery
+
+  options_menu:
+    description: "Options or settings menu"
+    required_elements:
+      - type: "any"
+        text: "Graphics"
+        text_match: "contains"
+      - type: "any"
+        text: "Back"
+        text_match: "contains"
+    timeout: 20
+
+  graphics_menu:
+    description: "Graphics settings screen"
+    required_elements:
+      - type: "any"
+        text: "Benchmark"
+        text_match: "contains"
+    timeout: 20
+
+  benchmark_running:
+    description: "Benchmark is actively running"
+    required_elements: []  # Often no reliable UI elements during benchmark
+    timeout: 180  # Should exceed expected benchmark duration
+
+  benchmark_complete:
+    description: "Benchmark results screen"
+    required_elements:
+      - type: "any"
+        text: "Results"
+        text_match: "contains"
+    timeout: 30
+
+# Define transitions between states
+transitions:
+  # From main menu to options menu
+  "main_menu->options_menu":
+    action: "click"
+    target:
+      type: "any"
+      text: "Options"
+      text_match: "contains"
+    # Alternative: Use hardcoded coordinates if text detection is unreliable
+    hardcoded_coords:
+      x: 500
+      y: 300
+    expected_delay: 2  # Seconds to wait after this transition
+
+  # From options to graphics menu
+  "options_menu->graphics_menu":
+    action: "click"
+    target:
+      type: "any"
+      text: "Graphics"
+      text_match: "contains"
+    expected_delay: 2
+
+  # From graphics menu to benchmark
+  "graphics_menu->benchmark_running":
+    action: "click"
+    target:
+      type: "any"
+      text: "Benchmark"
+      text_match: "contains"
+    expected_delay: 5
+
+  # Wait for benchmark to complete
+  "benchmark_running->benchmark_complete":
+    action: "wait"
+    duration: 120  # Adjust based on game's benchmark duration
+    expected_delay: 0
+
+# Fallback strategies for error recovery
+fallbacks:
+  # Generic escape key press as fallback
+  general:
+    action: "key"
+    key: "Escape"
+    expected_delay: 1
+    max_retries: 3
+
+  # Game-specific timeout recovery
+  timeout_recovery:
+    - action: "key"
+      key: "Escape"
+      repeat: 3
+      delay: 0.5
+    - action: "hardcoded_click"  # Fallback to clicking in top-left (often a menu button)
+      coordinates: [10, 10]

@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "campaign_name": "NVLS_Campaign",
+  "delay_between_games": 30,
+  "games": [
+    {
+      "game_name": "Cyberpunk2077",
+      "config_path": "config/games\\cyberpunk2077.yaml",
+      "game_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe",
+      "run_count": 1,
+      "run_delay": 30
+    },
+    {
+      "game_name": "Shadow of the Tomb Raider",
+      "config_path": "config/games\\sotr.yaml",
+      "game_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Shadow of the Tomb Raider\\sottr.exe",
+      "run_count": 1,
+      "run_delay": 30
+    }
+  ]
+}

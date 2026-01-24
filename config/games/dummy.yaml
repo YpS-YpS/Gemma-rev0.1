@@ -1,0 +1,24 @@
+metadata:
+  game_name: My Game
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2025-10-28 14:17:04'
+steps:
+  1:
+    description: click watch
+    find:
+      type: any
+      text: WATCH
+      text_match: contains
+    action:
+      type: click
+      button: left
+      move_duration: 0.3
+      click_delay: 0.2
+    expected_delay: 2
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 1

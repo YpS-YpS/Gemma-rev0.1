@@ -1,0 +1,24 @@
+{
+    "version": "1.0",
+    "settings": {
+        "request_timeout": 120,
+        "health_check_interval": 30,
+        "max_consecutive_failures": 3,
+        "max_queue_size": 100,
+        "recovery_check_interval": 10
+    },
+    "servers": [
+        {
+            "name": "Omniparser-Primary",
+            "url": "http://192.168.50.100:8000"
+        },
+        {
+            "name": "Omniparser-Secondary",
+            "url": "http://192.168.50.101:8000"
+        },
+        {
+            "name": "Omniparser-Tertiary",
+            "url": "http://192.168.50.102:8000"
+        }
+    ]
+}

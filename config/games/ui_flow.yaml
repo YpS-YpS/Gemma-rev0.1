@@ -1,0 +1,172 @@
+# UI Flow Configuration for Game Navigation
+# This YAML file defines the UI states, transitions, and actions
+# for navigating from the main menu to the benchmark screen
+
+# Name of the initial state
+initial_state: "main_menu"
+
+# Name of the target/end state
+target_state: "exit_complete"
+
+# Definitions of UI states and their identifying elements
+states:
+  main_menu:
+    description: "Main menu screen"
+    required_elements:
+      - type: "button"
+        text: "PLAY"
+      - type: "button"
+        text: "LOADOUT"
+      - type: "button"
+        text: "Exit"
+    timeout: 10  # Seconds to wait before timeout
+
+  options_menu:
+    description: "PLAy MENU SCREEN"
+    required_elements:
+      - type: "button"
+        text: "Graphics"
+      - type: "button"
+        text: "Audio"
+      - type: "button"
+        text: "Controls"
+      - type: "button"
+        text: "Back"
+    timeout: 10
+
+  graphics_menu:
+    description: "Graphics settings screen"
+    required_elements:
+      - type: "button"
+        text: "Resolution"
+      - type: "button"
+        text: "Quality"
+      - type: "button"
+        text: "Benchmark"
+      - type: "button"
+        text: "Back"
+    timeout: 10
+
+  benchmark_screen:
+    description: "Benchmark running screen"
+    required_elements:
+      - type: "label"
+        text: "Running Benchmark"
+    timeout: 120  # Longer timeout for benchmark to complete
+
+  benchmark_results:
+    description: "Benchmark results screen"
+    required_elements:
+      - type: "label"
+        text: "Results"
+      - type: "button"
+        text: "Save"
+      - type: "button"
+        text: "Back"
+    timeout: 30
+
+  exit_dialog:
+    description: "Exit confirmation dialog"
+    required_elements:
+      - type: "button"
+        text: "Yes"
+      - type: "button"
+        text: "No"
+      - type: "label"
+        text: "Exit"
+    timeout: 10
+    
+  exit_complete:
+    description: "Game has been exited"
+    required_elements: []
+    timeout: 5
+
+# State transition definitions
+transitions:
+  # From initial to main menu (wait for game to load)
+  
+    
+  # From main menu to paly menu
+  "main_menu->play_menu":
+    action: "click"
+    target:
+      type: "button"
+      text: "PLAY"
+    expected_delay: 1  # Expected delay in seconds before new state
+
+  # From options to graphics
+  "options_menu->graphics_menu":
+    action: "click"
+    target:
+      type: "button"
+      text: "Graphics"
+    expected_delay: 1
+
+  # From graphics to benchmark
+  "graphics_menu->benchmark_screen":
+    action: "click"
+    target:
+      type: "button"
+      text: "Benchmark"
+    expected_delay: 2
+
+  # Wait for benchmark to complete
+  "benchmark_screen->benchmark_results":
+    action: "wait"
+    duration: 60  # Just wait for benchmark to complete
+    expected_delay: 0
+
+  # From benchmark results back to graphics
+  "benchmark_results->graphics_menu":
+    action: "click"
+    target:
+      type: "button"
+      text: "Back"
+    expected_delay: 1
+
+  # From graphics back to options
+  "graphics_menu->options_menu":
+    action: "click"
+    target:
+      type: "button"
+      text: "Back"
+    expected_delay: 1
+
+  # From options back to main menu
+  "options_menu->main_menu":
+    action: "click"
+    target:
+      type: "button"
+      text: "Back"
+    expected_delay: 1
+
+  # From main menu to exit dialog
+  "main_menu->exit_dialog":
+    action: "click"
+    target:
+      type: "button"
+      text: "Exit"
+    expected_delay: 1
+
+  # Confirm exit
+  "exit_dialog->exit_complete":
+    action: "click"
+    target:
+      type: "button"
+      text: "Yes"
+    expected_delay: 1
+
+# Fallback actions for error recovery
+fallbacks:
+  # Generic escape key press as fallback
+  general:
+    action: "key"
+    key: "Escape"
+    expected_delay: 1
+
+  # Specific fallback for benchmark screen if it hangs
+  benchmark_screen:
+    action: "key"
+    key: "Escape"
+    expected_delay: 2
+    max_retries: 3

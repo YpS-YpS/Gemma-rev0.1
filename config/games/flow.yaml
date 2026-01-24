@@ -1,0 +1,59 @@
+initial_state: main_menu
+target_state: benchmark_completed
+sut_address: "http://10.0.0.5:5000"
+game_path: "/games/CS2/cs2.exe"
+
+default_wait: 1
+startup_wait: 8
+
+states:
+  main_menu:
+    required_elements:
+      - type: button
+        text: "Play"
+    transitions:
+      - on:
+          type: button
+          text: "Play"
+        action: click
+
+  play_menu:
+    required_elements:
+      - type: button
+        text: "Workshop Maps"
+    transitions:
+      - on:
+          type: button
+          text: "Workshop Maps"
+        action: click
+
+  workshop_maps:
+    required_elements:
+      - type: button
+        text: "Benchmark"
+    transitions:
+      - on:
+          type: button
+          text: "Benchmark"
+        action: click
+
+  benchmark_running:
+    required_elements:
+      - type: label
+        text: "Benchmark Running"
+    transitions:
+      # wait until next state detected
+      - on:
+          type: label
+          text: "Benchmark Completed"
+        action: wait
+
+  benchmark_completed:
+    required_elements:
+      - type: button
+        text: "Exit"
+    transitions:
+      - on:
+          type: button
+          text: "Exit"
+        action: click

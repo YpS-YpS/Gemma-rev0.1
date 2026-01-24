@@ -1,0 +1,513 @@
+# ============================================================================
+# COMPREHENSIVE STEP-BASED YAML TEMPLATE
+# Complete reference for all features supported by SimpleAutomation
+# ============================================================================
+
+# ============================================================================
+# METADATA SECTION
+# Define game information and automation settings
+# ============================================================================
+metadata:
+  game_name: "Your Game Name"                    # Display name for logging
+  path: "C:\\Path\\To\\Game.exe"                 # Full path to game executable
+  process_id: "game.exe"                         # Process name for tracking (optional)
+  version: "1.0"                                 # Config version (for your reference)
+  benchmark_duration: 120                        # Duration of benchmark in seconds
+  startup_wait: 30                               # Wait time after game launch
+  resolution: "1920x1080"                        # Target resolution (documentation)
+  preset: "High"                                 # Graphics preset (documentation)
+  description: "Complete automation template"   # Optional description
+
+# ============================================================================
+# ENHANCED FEATURES (Optional)
+# Advanced monitoring and control features
+# ============================================================================
+enhanced_features:
+  monitor_process_cpu: false                     # Monitor CPU usage during run
+  capture_performance_metrics: false             # Capture FPS/frame time data
+  enable_debug_logging: false                    # Extra verbose logging
+
+# ============================================================================
+# STEPS SECTION
+# Sequential steps to execute - the heart of your automation
+# ============================================================================
+steps:
+
+  # ==========================================================================
+  # STEP 1: FIND AND CLICK WITH VERIFICATION
+  # Most common pattern: Find element, click it, verify success
+  # ==========================================================================
+  1:
+    description: "Click PLAY button and verify menu opens"
+
+    # FIND AND CLICK CONFIGURATION
+    find_and_click:
+      type: "icon"                               # Element type: "icon", "text", or "any"
+      text: "PLAY"                               # Text content to search for
+      text_match: "contains"                     # Match strategy: "exact", "contains", "startswith", "endswith"
+      confidence: 0.7                            # Minimum confidence (0.0-1.0, default 0.7)
+
+      # OPTIONAL: Click parameters (can override defaults)
+      click_params:
+        button: "left"                           # Mouse button: "left", "right", "middle"
+        move_duration: 0.5                       # Time to move mouse (seconds)
+        click_delay: 0.1                         # Delay before clicking (seconds)
+        offset_x: 0                              # X offset from element center
+        offset_y: 0                              # Y offset from element center
+
+    # VERIFICATION STRATEGY
+    verify_success:
+      - type: "icon"                             # Can have multiple verification elements
+        text: "START GAME"
+        text_match: "contains"
+      - type: "text"
+        text: "Select Mode"
+        text_match: "contains"
+
+    # TIMING AND RETRY SETTINGS
+    expected_delay: 2                            # Wait after action before verification
+    timeout: 20                                  # Max time to wait for element (seconds)
+    max_retries: 3                               # Number of retry attempts
+
+  # ==========================================================================
+  # STEP 2: MULTIPLE ELEMENT VERIFICATION (OR logic)
+  # Verify at least one of several elements exists
+  # ==========================================================================
+  2:
+    description: "Navigate to settings (flexible verification)"
+
+    find_and_click:
+      type: "any"                                # Use "any" for flexible element matching
+      text: "Settings"
+      text_match: "exact"                        # Exact match for precision
+
+    # MULTIPLE VERIFICATION OPTIONS (any one succeeds = success)
+    verify_success:
+      - type: "icon"
+        text: "Graphics"
+      - type: "icon"
+        text: "Video Settings"
+      - type: "text"
+        text: "Display Options"
+
+    expected_delay: 3
+    timeout: 15
+
+  # ==========================================================================
+  # STEP 3: CUSTOM ACTION - KEYBOARD INPUT
+  # Execute key press instead of click
+  # ==========================================================================
+  3:
+    description: "Press Escape to go back"
+
+    # ACTION: KEY PRESS
+    action:
+      type: "key"                                # Single key press
+      key: "escape"                              # Key name (lowercase recommended)
+      # Supported keys: enter, return, space, tab, escape, esc, backspace,
+      #                 delete, shift, ctrl, alt, win, f1-f12,
+      #                 up, down, left, right, home, end, pageup, pagedown
+
+    # SIMPLE VERIFICATION (no find_and_click needed)
+    verify_success:
+      - type: "icon"
+        text: "Resume"
+
+    expected_delay: 1
+    timeout: 10
+
+  # ==========================================================================
+  # STEP 4: HOTKEY COMBINATION
+  # Press multiple keys simultaneously
+  # ==========================================================================
+  4:
+    description: "Open console with Ctrl+Shift+C"
+
+    action:
+      type: "hotkey"                             # Hotkey combination
+      keys: ["ctrl", "shift", "c"]               # List of keys to press together
+
+    verify_success:
+      - type: "text"
+        text: "Console"
+
+    expected_delay: 1
+    timeout: 5
+
+  # ==========================================================================
+  # STEP 5: TEXT INPUT
+  # Type text character by character
+  # ==========================================================================
+  5:
+    description: "Type command in console"
+
+    action:
+      type: "text"                               # Type text
+      text: "sv_cheats 1"                        # Text to type
+      char_delay: 0.05                           # Delay between characters (seconds)
+      clear_first: false                         # Whether to clear existing text first
+
+    # NO VERIFICATION (sometimes you can't verify text input)
+    verify_success: []                           # Empty list = skip verification
+
+    expected_delay: 1
+    timeout: 5
+
+  # ==========================================================================
+  # STEP 6: WAIT ACTION
+  # Simple wait with no other action
+  # ==========================================================================
+  6:
+    description: "Wait for benchmark to complete"
+
+    action: "wait"                               # Simple string for wait action
+    duration: 120                                # Wait duration in seconds
+
+    # SPECIAL VERIFICATION: [loading] means skip verification
+    verify_success: [loading]                    # Use this for loading screens
+
+    timeout: 125                                 # Should be > duration
+
+  # ==========================================================================
+  # STEP 7: SCROLL ACTION
+  # Scroll at specific coordinates or on element
+  # ==========================================================================
+  7:
+    description: "Scroll down in settings menu"
+
+    # OPTIONAL: Find element first
+    find_element:
+      type: "icon"
+      text: "Settings List"
+      text_match: "contains"
+
+    action:
+      type: "scroll"
+      direction: "down"                          # "up" or "down"
+      clicks: 5                                  # Number of scroll clicks
+      # If find_element is used, scrolls at element location
+      # Otherwise specify x, y:
+      x: 960                                     # X coordinate (optional)
+      y: 540                                     # Y coordinate (optional)
+
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+  # ==========================================================================
+  # STEP 8: MOUSE ACTIONS (Double, Right, Middle Click)
+  # Advanced mouse interactions
+  # ==========================================================================
+  8:
+    description: "Right-click on item for context menu"
+
+    find_and_click:
+      type: "icon"
+      text: "Inventory Item"
+      text_match: "contains"
+
+    action:
+      type: "right_click"                        # Options: "double_click", "right_click", "middle_click"
+      # Element from find_and_click is used automatically
+      # Or specify coordinates:
+      # x: 500
+      # y: 300
+
+    verify_success:
+      - type: "icon"
+        text: "Drop"
+
+    expected_delay: 1
+    timeout: 10
+
+  # ==========================================================================
+  # STEP 9: DRAG AND DROP
+  # Drag from one location to another
+  # ==========================================================================
+  9:
+    description: "Drag slider to maximum"
+
+    # FIND START ELEMENT
+    find_element:
+      type: "icon"
+      text: "Slider"
+      text_match: "contains"
+
+    action:
+      type: "drag"
+      # Start from found element, or specify:
+      # start_x: 100
+      # start_y: 200
+      end_x: 500                                 # End X coordinate
+      end_y: 200                                 # End Y coordinate
+      duration: 1.0                              # Drag duration (seconds)
+      button: "left"                             # Mouse button to use
+
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+  # ==========================================================================
+  # STEP 10: CONDITIONAL ACTION
+  # Execute different actions based on what's found
+  # ==========================================================================
+  10:
+    description: "Handle popup if it appears"
+
+    action:
+      type: "conditional"
+
+      # CHECK FOR CONDITION
+      check_element:
+        type: "icon"
+        text: "OK"
+        text_match: "contains"
+
+      # ACTION IF ELEMENT FOUND
+      if_found:
+        type: "click"
+        # Clicks the found element
+
+      # ACTION IF ELEMENT NOT FOUND (optional)
+      if_not_found:
+        type: "wait"
+        duration: 1
+
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+  # ==========================================================================
+  # STEP 11: SEQUENCE OF ACTIONS
+  # Execute multiple actions in order
+  # ==========================================================================
+  11:
+    description: "Navigate through multiple menus"
+
+    action:
+      type: "sequence"
+      delay_between: 0.5                         # Delay between each action
+
+      actions:
+        - type: "key"
+          key: "escape"
+
+        - type: "wait"
+          duration: 1
+
+        - type: "click"
+          x: 960
+          y: 540
+
+        - type: "hotkey"
+          keys: ["ctrl", "q"]
+
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+
+  # ==========================================================================
+  # STEP 12: COMPLEX FIND WITH ADVANCED TEXT MATCHING
+  # Demonstrate all text matching strategies
+  # ==========================================================================
+  12:
+    description: "Find element with various matching strategies"
+
+    find_and_click:
+      type: "text"
+      text: "Start"
+      text_match: "exact"                        # TEXT MATCH OPTIONS:
+                                                 # "exact"      - Must match exactly
+                                                 # "contains"   - Must contain the text
+                                                 # "startswith" - Must start with text
+                                                 # "endswith"   - Must end with text
+
+    verify_success:
+      - type: "any"                              # "any" matches both icon and text
+        text: "Running"
+        text_match: "contains"
+
+    expected_delay: 2
+    timeout: 15
+
+  # ==========================================================================
+  # STEP 13: NO ACTION, JUST VERIFICATION
+  # Useful for waiting for a state change
+  # ==========================================================================
+  13:
+    description: "Wait for loading to complete"
+
+    # NO ACTION SPECIFIED - just verify elements appear
+
+    verify_success:
+      - type: "icon"
+        text: "Continue"
+
+    expected_delay: 5
+    timeout: 60                                  # Long timeout for loading
+
+  # ==========================================================================
+  # STEP 14: CUSTOM COORDINATES CLICK
+  # Click at specific screen coordinates
+  # ==========================================================================
+  14:
+    description: "Click at specific coordinates"
+
+    action:
+      type: "click"
+      x: 960                                     # X coordinate
+      y: 540                                     # Y coordinate
+      button: "left"
+      move_duration: 0.3
+      click_delay: 0.1
+
+    verify_success: []
+    expected_delay: 1
+    timeout: 10
+
+# ============================================================================
+# OPTIONAL STEPS / INTERRUPT HANDLERS
+# Handle popups, dialogs, or unexpected interruptions
+# These are checked before EVERY step
+# ============================================================================
+optional_steps:
+
+  # POPUP HANDLER EXAMPLE 1: Close advertisement
+  close_ad_popup:
+    description: "Close advertisement popup if it appears"
+
+    # TRIGGER: What to look for
+    trigger:
+      type: "icon"
+      text: "Close"
+      text_match: "contains"
+
+    # ACTION: What to do when found
+    action:
+      type: "click"
+      # Clicks the trigger element
+
+    max_checks: 10                               # Max times to check per run
+    priority: 1                                  # Higher priority = checked first
+
+  # POPUP HANDLER EXAMPLE 2: Handle error dialog
+  handle_error_dialog:
+    description: "Dismiss error dialog"
+
+    trigger:
+      type: "text"
+      text: "Error"
+      text_match: "contains"
+
+    action:
+      type: "key"
+      key: "escape"
+
+    max_checks: 5
+    priority: 2
+
+  # POPUP HANDLER EXAMPLE 3: Multi-step popup handling
+  skip_tutorial:
+    description: "Skip tutorial if it appears"
+
+    trigger:
+      type: "icon"
+      text: "Skip Tutorial"
+      text_match: "contains"
+
+    action:
+      type: "sequence"
+      actions:
+        - type: "click"
+          # Clicks trigger element
+        - type: "wait"
+          duration: 1
+        - type: "key"
+          key: "enter"
+
+    max_checks: 3
+    priority: 3
+
+# ============================================================================
+# FALLBACK ACTIONS
+# Execute when a step fails (before retry)
+# ============================================================================
+fallbacks:
+  general:
+    action: "key"                                # Action type
+    key: "escape"                                # Key to press
+    expected_delay: 1                            # Delay after fallback
+    max_retries: 3                               # Global max retries
+
+# ============================================================================
+# NOTES AND TIPS
+# ============================================================================
+
+# TEXT MATCHING STRATEGIES:
+# -------------------------
+# "exact"      - Case-insensitive exact match
+# "contains"   - Text must contain the search string (most flexible)
+# "startswith" - Text must start with the search string
+# "endswith"   - Text must end with the search string
+
+# ELEMENT TYPES:
+# --------------
+# "icon"    - Interactive elements (buttons, clickable icons)
+# "text"    - Non-interactive text elements (labels, static text)
+# "any"     - Matches both icon and text (most flexible)
+
+# ACTION TYPES:
+# -------------
+# "click"         - Standard left click
+# "key"           - Single key press
+# "hotkey"        - Key combination (Ctrl+C, etc.)
+# "text"          - Type text character by character
+# "scroll"        - Scroll up or down
+# "drag"          - Drag and drop
+# "wait"          - Simple wait/delay
+# "double_click"  - Double click
+# "right_click"   - Right mouse button click
+# "middle_click"  - Middle mouse button click
+# "conditional"   - Execute based on condition
+# "sequence"      - Execute multiple actions in order
+
+# VERIFICATION STRATEGIES:
+# ------------------------
+# []                    - Empty list = skip verification
+# [loading]            - Special keyword for loading screens
+# List of elements     - All must be found (AND logic)
+# Multiple in one step - At least one must be found (OR logic)
+
+# TIMING TIPS:
+# ------------
+# expected_delay: Time to wait after action before verification
+# timeout: Maximum time to wait for element to appear
+# duration: For wait actions, how long to wait
+# move_duration: How long to move mouse to target
+# click_delay: Pause before clicking
+
+# COORDINATE SYSTEM:
+# ------------------
+# X: Horizontal position (0 = left edge, increases rightward)
+# Y: Vertical position (0 = top edge, increases downward)
+# For 1920x1080: Center is approximately (960, 540)
+
+# BEST PRACTICES:
+# ---------------
+# 1. Use "any" type when you don't care about icon vs text
+# 2. Use "contains" matching for flexibility
+# 3. Set timeout > expected_delay + action_time
+# 4. Use optional_steps for popups and interrupts
+# 5. Use [loading] for loading screens to skip verification
+# 6. Test with small expected_delay first, increase if needed
+# 7. Add descriptive descriptions for debugging
+# 8. Use verify_success: [] only when verification is impossible
+
+# DEBUGGING:
+# ----------
+# - Check logs/[Game Name]/screenshots/ for captured images
+# - Check logs/[Game Name]/annotated/ for element annotations
+# - Look for "Available UI elements" in logs to see what was detected
+# - Increase timeouts if elements are slow to appear
+# - Use "any" type if unsure whether element is icon or text
+# - Check capitalization - matching is case-insensitive

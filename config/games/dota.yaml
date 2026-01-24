@@ -1,0 +1,56 @@
+metadata:
+  game_name: dota2
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2025-10-28 03:40:33'
+steps:
+  1:
+    description: watch click
+    find_and_click:
+      type: any
+      text: WATCH
+      text_match: contains
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+  2:
+    description: go to tournaments
+    find_and_click:
+      type: any
+      text: TOURNAMENTS
+      text_match: contains
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+  3:
+    description: sda
+    find_and_click:
+      type: icon
+      text: VIEW
+      text_match: contains
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+  4:
+    description: watch
+    find_and_click:
+      type: icon
+      text: WATCH V
+      text_match: contains
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+  5:
+    description: watch game 1
+    find_and_click:
+      type: any
+      text: Game 1
+      text_match: contains
+    verify_success: []
+    expected_delay: 2
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 1
