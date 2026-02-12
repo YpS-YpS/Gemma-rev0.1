@@ -2,18 +2,18 @@
   "version": "1.0",
   "shared_settings": {
     "vision_model": "omniparser",
-    "omniparser_url": "http://localhost:8000",
+    "omniparser_url": "http://localhost:9000",
     "lm_studio_url": "http://127.0.0.1:1234",
     "max_iterations": 50,
     "log_level": "DEBUG"
   },
   "suts": [
     {
-      "name": "Razer",
-      "ip": "192.168.50.217",
+      "name": "NVL",
+      "ip": "10.48.103.25",
       "port": 8080,
-      "config_path": "",
-      "game_path": "",
+      "config_path": "config/games/cyberpunk2077_NVL.yaml",
+      "game_path": "C:/Program Files (x86)/Steam/steamapps/common/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe",
       "run_count": 3,
       "run_delay": 30,
       "campaign_mode": false,

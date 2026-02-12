@@ -391,7 +391,10 @@ class SUTController:
 
             # Run appropriate automation type with batch_dir
             if config_parser.is_step_based():
-                self._run_simple_automation(config_parser, config, shared_settings, batch_dir, run_num)
+                if shared_settings.get("vision_model") == "intelligent":
+                    self._run_intelligent_automation(config_parser, config, shared_settings, batch_dir, run_num)
+                else:
+                    self._run_simple_automation(config_parser, config, shared_settings, batch_dir, run_num)
             else:
                 self._run_state_machine_automation(config_parser, config, shared_settings, batch_dir, run_num)
 
@@ -508,7 +511,10 @@ class SUTController:
 
                 # Run appropriate automation type
                 if config_parser.is_step_based():
-                    self._run_simple_automation(config_parser, config, shared_settings, game_dir, run_num)
+                    if shared_settings.get("vision_model") == "intelligent":
+                        self._run_intelligent_automation(config_parser, config, shared_settings, game_dir, run_num)
+                    else:
+                        self._run_simple_automation(config_parser, config, shared_settings, game_dir, run_num)
                 else:
                     self._run_state_machine_automation(config_parser, config, shared_settings, game_dir, run_num)
 
@@ -750,6 +756,166 @@ class SUTController:
 
         except Exception as e:
             self.logger.error(f"SimpleAutomation failed: {str(e)}", exc_info=True)
+            self.status = "Failed"
+
+    def _run_intelligent_automation(self, config_parser, config, shared_settings, batch_dir, run_num):
+        """Run intelligent automation (OmniParser + VLM reasoning)."""
+        try:
+            from modules.network import NetworkManager
+            from modules.screenshot import ScreenshotManager
+            from modules.omniparser_client import OmniparserClient
+            from modules.annotator import Annotator
+            from modules.intelligent_automation import IntelligentAutomation
+            from modules.vlm_reasoning_client import VLMReasoningClient
+            from modules.game_launcher import GameLauncher
+
+            # Create run-specific directory
+            run_dir = f"{batch_dir}/run_{run_num}"
+            os.makedirs(run_dir, exist_ok=True)
+            os.makedirs(f"{run_dir}/screenshots", exist_ok=True)
+            os.makedirs(f"{run_dir}/annotated", exist_ok=True)
+
+            self.current_run_dir = run_dir
+
+            # Set up run-specific logging
+            run_log_file = f"{run_dir}/automation.log"
+            run_file_handler = logging.FileHandler(run_log_file)
+            run_file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            run_file_handler.setFormatter(run_file_formatter)
+            self.logger.addHandler(run_file_handler)
+
+            self.logger.info(f"Created run directory: {run_dir}")
+
+            # Initialize components
+            self.logger.info(f"Connecting to SUT at {self.ip}:{self.port}")
+            network = NetworkManager(self.ip, int(self.port))
+
+            self.logger.info("Initializing components for Intelligent Mode...")
+            screenshot_mgr = ScreenshotManager(network)
+
+            # OmniParser is always used in intelligent mode
+            self.logger.info("Using Omniparser for element detection")
+            omniparser = OmniparserClient(shared_settings.get("omniparser_url"))
+
+            # VLM Reasoning Client
+            vlm_provider = shared_settings.get("vlm_provider", "openai")
+            vlm_model = shared_settings.get("vlm_model", "gpt-4o")
+            vlm_api_key = shared_settings.get("vlm_api_key", "")
+            vlm_base_url = shared_settings.get("vlm_base_url", "")
+            self.logger.info(f"VLM Reasoning: provider={vlm_provider}, model={vlm_model}")
+
+            vlm_client = VLMReasoningClient(
+                provider=vlm_provider,
+                api_key=vlm_api_key,
+                model=vlm_model,
+                base_url=vlm_base_url,
+            )
+
+            annotator = Annotator()
+            game_launcher = GameLauncher(network)
+            stabilization_enabled = shared_settings.get("stabilization_enabled", True)
+
+            # Helper for steam login (same as _run_simple_automation)
+            def _handle_steam_login(metadata):
+                steam_user = metadata.get("steam_username")
+                steam_pass = metadata.get("steam_password")
+                if steam_user and steam_pass:
+                    self.logger.info(f"Steam credentials found for user: {steam_user}")
+                    try:
+                        self.logger.info("Initiating Steam login...")
+                        if network.login_steam(steam_user, steam_pass):
+                            self.logger.info("Steam login completed successfully")
+                            time.sleep(5)
+                            return True
+                        else:
+                            self.logger.error("Steam login FAILED")
+                            return False
+                    except Exception as e:
+                        self.logger.error(f"Steam login exception: {e}")
+                        return False
+                return True
+
+            game_metadata = config_parser.get_game_metadata()
+            self.logger.info(f"Game metadata loaded: {game_metadata}")
+            startup_wait = game_metadata.get("startup_wait", 30)
+            process_id = game_metadata.get("process_id", '')
+
+            try:
+                # Steam login
+                if not _handle_steam_login(game_metadata):
+                    self.logger.error("Stopping automation: Steam login failed")
+                    self.status = "Failed"
+                    return
+
+                # Launch game
+                if self.game_path:
+                    self.logger.info(f"Launching game from: {self.game_path}")
+                    game_launcher.launch(self.game_path, process_id, startup_wait)
+                    if process_id:
+                        self.current_process_id = process_id
+                    self.logger.info(f"Waiting {startup_wait} seconds for game to initialize...")
+                    for i in range(startup_wait):
+                        if self.stop_event.is_set():
+                            break
+                        time.sleep(1)
+                        self.current_step = f"Initializing ({startup_wait-i}s)"
+                else:
+                    self.logger.info("No game path provided, assuming game is already running")
+
+                if self.stop_event.is_set():
+                    self.logger.info("Automation stopped during initialization")
+                    self.status = "Stopped"
+                    return
+
+                # Start IntelligentAutomation
+                self.logger.info("Starting IntelligentAutomation...")
+                intelligent_auto = IntelligentAutomation(
+                    config_path=config_parser.config_path,
+                    network=network,
+                    screenshot_mgr=screenshot_mgr,
+                    omniparser=omniparser,
+                    vlm_client=vlm_client,
+                    stop_event=self.stop_event,
+                    run_dir=run_dir,
+                    annotator=annotator,
+                    progress_callback=self,
+                    stabilization_enabled=stabilization_enabled,
+                )
+
+                success = intelligent_auto.run()
+
+                if success:
+                    self.status = "Completed"
+                    self.logger.info("Intelligent automation completed successfully")
+                elif self.stop_event.is_set():
+                    self.status = "Stopped"
+                    self.logger.info("Intelligent automation stopped by user")
+                else:
+                    self.status = "Failed"
+                    self.logger.error("Intelligent automation failed")
+
+            except Exception as e:
+                self.logger.error(f"Error in intelligent automation: {str(e)}", exc_info=True)
+                self.status = "Failed"
+
+            finally:
+                if self.current_process_id and self.status in ["Failed", "Stopped"]:
+                    self.logger.info("Cleaning up: Killing game process...")
+                    self.kill_game_process()
+                elif self.current_process_id and self.status == "Completed":
+                    self.logger.debug("Automation completed successfully - leaving game process running")
+
+                if 'network' in locals():
+                    network.close()
+                if 'omniparser' in locals() and hasattr(omniparser, 'close'):
+                    omniparser.close()
+                if 'vlm_client' in locals() and hasattr(vlm_client, 'close'):
+                    vlm_client.close()
+                if 'run_file_handler' in locals():
+                    self.logger.removeHandler(run_file_handler)
+
+        except Exception as e:
+            self.logger.error(f"IntelligentAutomation failed: {str(e)}", exc_info=True)
             self.status = "Failed"
 
     def _run_state_machine_automation(self, config_parser, config, shared_settings, batch_dir, run_num):
@@ -1084,6 +1250,13 @@ class MultiSUTGUI:
         self.max_iterations = tk.StringVar(value="50")
         self.log_level = tk.StringVar(value="INFO")
 
+        # Intelligent mode settings
+        self.vlm_provider = tk.StringVar(value="openai")
+        self.vlm_model = tk.StringVar(value="gpt-4o")
+        self.vlm_api_key = tk.StringVar(value="")
+        self.vlm_base_url = tk.StringVar(value="")
+        self.stabilization_enabled = tk.BooleanVar(value=True)
+
         # Configure style
         self.style = ttk.Style()
         self.style.configure("TButton", padding=6)
@@ -1114,7 +1287,9 @@ class MultiSUTGUI:
         ttk.Radiobutton(model_row, text="Gemma", variable=self.vision_model,
                        value="gemma", command=self.on_vision_model_change).pack(side=tk.LEFT, padx=(0, 15))
         ttk.Radiobutton(model_row, text="Qwen VL", variable=self.vision_model,
-                       value="qwen", command=self.on_vision_model_change).pack(side=tk.LEFT)
+                       value="qwen", command=self.on_vision_model_change).pack(side=tk.LEFT, padx=(0, 15))
+        ttk.Radiobutton(model_row, text="Intelligent", variable=self.vision_model,
+                       value="intelligent", command=self.on_vision_model_change).pack(side=tk.LEFT)
 
         # Queue manager to Omniparser
         omni_row = ttk.Frame(settings_frame)
@@ -1144,6 +1319,42 @@ class MultiSUTGUI:
         ttk.Combobox(log_row, textvariable=self.log_level,
                      values=["DEBUG", "INFO", "WARNING", "ERROR"],
                      state='readonly', width=10).pack(side=tk.LEFT)
+
+        # Intelligent Mode Settings (hidden by default)
+        self.intelligent_settings_frame = ttk.LabelFrame(settings_frame, text="Intelligent Mode Settings", padding="5")
+
+        # Row 1: VLM Provider + Model + Test button
+        vlm_row1 = ttk.Frame(self.intelligent_settings_frame)
+        vlm_row1.pack(fill=tk.X, pady=2)
+        ttk.Label(vlm_row1, text="VLM Provider:").pack(side=tk.LEFT, padx=(0, 5))
+        vlm_provider_combo = ttk.Combobox(vlm_row1, textvariable=self.vlm_provider,
+                     values=["openai", "anthropic", "google", "local"],
+                     state='readonly', width=12)
+        vlm_provider_combo.pack(side=tk.LEFT, padx=(0, 10))
+        vlm_provider_combo.bind("<<ComboboxSelected>>", lambda e: self._on_vlm_provider_change())
+        ttk.Label(vlm_row1, text="Model:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(vlm_row1, textvariable=self.vlm_model, width=20).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(vlm_row1, text="Test VLM", command=self.test_vlm_connection).pack(side=tk.LEFT, padx=(0, 10))
+        self.vlm_status_label = tk.Label(vlm_row1, text="Not Tested", foreground="gray", font=("TkDefaultFont", 10))
+        self.vlm_status_label.pack(side=tk.LEFT)
+
+        # Row 2: API Key + Base URL
+        vlm_row2 = ttk.Frame(self.intelligent_settings_frame)
+        vlm_row2.pack(fill=tk.X, pady=2)
+        ttk.Label(vlm_row2, text="API Key:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(vlm_row2, textvariable=self.vlm_api_key, width=30, show="*").pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(vlm_row2, text="Base URL (override):").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(vlm_row2, textvariable=self.vlm_base_url, width=30).pack(side=tk.LEFT)
+
+        # Row 3: Screen stabilization
+        vlm_row3 = ttk.Frame(self.intelligent_settings_frame)
+        vlm_row3.pack(fill=tk.X, pady=2)
+        ttk.Checkbutton(vlm_row3, text="Enable Screen Stabilization (wait for UI to settle before parsing)",
+                        variable=self.stabilization_enabled).pack(side=tk.LEFT)
+
+        # Show/hide based on current selection
+        if self.vision_model.get() == "intelligent":
+            self.intelligent_settings_frame.pack(fill=tk.X, pady=5)
 
         # Multi-SUT controls section
         controls_frame = ttk.LabelFrame(master_frame, text="Multi-SUT Controls", padding="10")
@@ -1649,7 +1860,12 @@ class MultiSUTGUI:
             "omniparser_url": self.omniparser_url.get(),
             "lm_studio_url": self.lm_studio_url.get(),
             "max_iterations": int(self.max_iterations.get()),
-            "log_level": self.log_level.get()
+            "log_level": self.log_level.get(),
+            "vlm_provider": self.vlm_provider.get(),
+            "vlm_model": self.vlm_model.get(),
+            "vlm_api_key": self.vlm_api_key.get(),
+            "vlm_base_url": self.vlm_base_url.get(),
+            "stabilization_enabled": self.stabilization_enabled.get()
         }
 
         # Start automation
@@ -1917,7 +2133,12 @@ class MultiSUTGUI:
             "omniparser_url": self.omniparser_url.get(),
             "lm_studio_url": self.lm_studio_url.get(),
             "max_iterations": int(self.max_iterations.get()),
-            "log_level": self.log_level.get()
+            "log_level": self.log_level.get(),
+            "vlm_provider": self.vlm_provider.get(),
+            "vlm_model": self.vlm_model.get(),
+            "vlm_api_key": self.vlm_api_key.get(),
+            "vlm_base_url": self.vlm_base_url.get(),
+            "stabilization_enabled": self.stabilization_enabled.get()
         }
 
         for name, controller in self.sut_controllers.items():
@@ -1991,7 +2212,12 @@ class MultiSUTGUI:
                 "omniparser_url": self.omniparser_url.get(),
                 "lm_studio_url": self.lm_studio_url.get(),
                 "max_iterations": int(self.max_iterations.get()),
-                "log_level": self.log_level.get()
+                "log_level": self.log_level.get(),
+                "vlm_provider": self.vlm_provider.get(),
+                "vlm_model": self.vlm_model.get(),
+                "vlm_api_key": self.vlm_api_key.get(),
+                "vlm_base_url": self.vlm_base_url.get(),
+                "stabilization_enabled": self.stabilization_enabled.get()
             },
             "suts": [controller.to_dict() for controller in self.sut_controllers.values()]
         }
@@ -2025,6 +2251,12 @@ class MultiSUTGUI:
             self.lm_studio_url.set(shared.get("lm_studio_url", "http://127.0.0.1:1234"))
             self.max_iterations.set(str(shared.get("max_iterations", 50)))
             self.log_level.set(shared.get("log_level", "INFO"))
+            self.vlm_provider.set(shared.get("vlm_provider", "openai"))
+            self.vlm_model.set(shared.get("vlm_model", "gpt-4o"))
+            self.vlm_api_key.set(shared.get("vlm_api_key", ""))
+            self.vlm_base_url.set(shared.get("vlm_base_url", ""))
+            self.stabilization_enabled.set(shared.get("stabilization_enabled", True))
+            self.on_vision_model_change()  # Update UI visibility
 
             # Clear existing SUTs
             for name in list(self.sut_controllers.keys()):
@@ -2076,9 +2308,43 @@ class MultiSUTGUI:
         del self.sut_controllers[name]
 
     def on_vision_model_change(self):
-        """Handle vision model selection change."""
-        # Update UI based on selection
-        pass
+        """Handle vision model selection change — show/hide intelligent settings."""
+        if self.vision_model.get() == "intelligent":
+            self.intelligent_settings_frame.pack(fill=tk.X, pady=5)
+        else:
+            self.intelligent_settings_frame.pack_forget()
+
+    def _on_vlm_provider_change(self):
+        """Update default model name when VLM provider changes."""
+        defaults = {
+            "openai": "gpt-4o",
+            "anthropic": "claude-sonnet-4-20250514",
+            "google": "gemini-2.0-flash",
+            "local": "auto",
+        }
+        provider = self.vlm_provider.get()
+        self.vlm_model.set(defaults.get(provider, "auto"))
+
+    def test_vlm_connection(self):
+        """Test connection to the selected VLM provider."""
+        try:
+            from modules.vlm_reasoning_client import VLMReasoningClient
+            client = VLMReasoningClient(
+                provider=self.vlm_provider.get(),
+                api_key=self.vlm_api_key.get(),
+                model=self.vlm_model.get(),
+                base_url=self.vlm_base_url.get(),
+            )
+            if client.test_connection():
+                self.vlm_status_label.config(text="Connected", foreground="green")
+                messagebox.showinfo("Success", f"Connected to {self.vlm_provider.get()} VLM")
+            else:
+                self.vlm_status_label.config(text="Failed", foreground="red")
+                messagebox.showerror("Error", "VLM connection test failed")
+            client.close()
+        except Exception as e:
+            self.vlm_status_label.config(text="Failed", foreground="red")
+            messagebox.showerror("Error", f"VLM connection failed: {str(e)}")
 
     def test_omniparser(self):
         """Test connection to Omniparser server."""

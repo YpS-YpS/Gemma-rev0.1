@@ -1,0 +1,215 @@
+metadata:
+  game_name: Cyberpunk2077
+  version: '1.0'
+  created_with: Katana Workflow Builder
+  created_date: '2026-02-10 15:03:27'
+  path: C:\Program Files (x86)\Steam\steamapps\common\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe
+  process_id: Cyberpunk2077
+  process_name: Cyberpunk2077
+  benchmark_name: Cyberpunk ingame benchmark
+  benchmark_duration: 100
+  startup_wait: 80
+  resolution: 1920x1080
+  preset: High
+  engine: Red Engine 4.0
+  graphics_api: DirectX 11
+steps:
+  1:
+    description: PRESS SPACE TO CONTINUE
+    find:
+      type: any
+      text: PRESS
+      text_match: contains
+    action:
+      type: key
+      key: space
+    expected_delay: 5
+    timeout: 20
+  2:
+    description: GO LEFT
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: left
+    expected_delay: 3
+    timeout: 20
+  3:
+    description: GO DOWN
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: down
+    expected_delay: 3
+    timeout: 20
+  4:
+    description: PRESS ENTER ON SETTINGS
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 2
+    timeout: 20
+  5:
+    description: NAVIGATE TO GRAPHICS
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: '3'
+    expected_delay: 2
+    timeout: 20
+  6:
+    description: NAVIGATE TO GRAPHICS
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: '3'
+    expected_delay: 2
+    timeout: 20
+  7:
+    description: NAVIGATE TO GRAPHICS
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: '3'
+    expected_delay: 2
+    timeout: 20
+  8:
+    description: START BENCHMARK
+    find:
+      type: any
+      text: BENCHMARK
+      text_match: contains
+    action:
+      type: key
+      key: b
+    expected_delay: 2
+    timeout: 20
+  9:
+    description: HIT CONFIRM
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 2
+    timeout: 20
+  10:
+    description: WAIT FOR BENCHMARK TO COMPLETE
+    action:
+      type: wait
+      duration: 120
+    expected_delay: 2
+    timeout: 20
+  11:
+    description: EXIT TO MAIN MENU
+    find:
+      type: any
+      text: Exit
+      text_match: contains
+    action:
+      type: key
+      key: escape
+    expected_delay: 2
+    timeout: 20
+  12:
+    description: CONFIRM TO EXIT TO MAIN MENU
+    find:
+      type: icon
+      text: ''
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 20
+    timeout: 20
+  13:
+    description: PRESS SPACE TO CONTINUE
+    find:
+      type: any
+      text: PRESS
+      text_match: contains
+    action:
+      type: key
+      key: space
+    expected_delay: 7
+    timeout: 20
+  14:
+    description: GO LEFT
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: left
+    expected_delay: 3
+    timeout: 20
+  15:
+    description: GO DOWN
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: down
+    expected_delay: 3
+    timeout: 20
+  16:
+    description: GO DOWN
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: down
+    expected_delay: 3
+    timeout: 20
+  17:
+    description: GO DOWN
+    find:
+      type: any
+      text: SETTINGS
+      text_match: contains
+    action:
+      type: key
+      key: down
+    expected_delay: 3
+    timeout: 20
+  18:
+    description: QUIT GAME
+    find:
+      type: any
+      text: QUIT GAME
+      text_match: contains
+    action:
+      type: key
+      key: enter
+    expected_delay: 2
+    timeout: 20
+fallbacks:
+  general:
+    action: key
+    key: escape
+    expected_delay: 1

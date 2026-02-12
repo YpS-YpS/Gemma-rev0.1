@@ -138,6 +138,17 @@ class SimpleConfigParser:
             if has_sideload:
                 self._validate_sideload(step["sideload"], step_num)
 
+            # Validate optional intelligent-mode fields (warnings only)
+            if "goal" in step:
+                goal = step["goal"]
+                if not isinstance(goal, str) or not goal.strip():
+                    logger.warning(f"Step {step_num} 'goal' should be a non-empty string")
+
+            if "max_iterations" in step:
+                max_iter = step["max_iterations"]
+                if not isinstance(max_iter, int) or max_iter <= 0:
+                    logger.warning(f"Step {step_num} 'max_iterations' should be a positive integer")
+
         logger.info("Simple configuration validation successful")
         return True
 

@@ -66,13 +66,13 @@ def create_server_panel(stats: dict) -> Panel:
         return Panel(Text("Connecting...", style="dim"), title="[bold]Servers", border_style="dim")
 
     table = Table(show_header=True, header_style="bold white", expand=True, box=None)
-    table.add_column("Server", style="bold", min_width=15)
-    table.add_column("Status", justify="center", min_width=12)
-    table.add_column("State", justify="center", min_width=10)
-    table.add_column("Requests", justify="right", min_width=10)
-    table.add_column("Success", justify="right", min_width=10)
-    table.add_column("Failed", justify="right", min_width=8)
-    table.add_column("Avg Time", justify="right", min_width=10)
+    table.add_column("Server", style="bold", min_width=12)
+    table.add_column("Status", justify="center", min_width=10)
+    table.add_column("State", justify="center", min_width=8)
+    table.add_column("Reqs", justify="right", min_width=6)
+    table.add_column("OK", justify="right", min_width=6)
+    table.add_column("Fail", justify="right", min_width=6)
+    table.add_column("Avg Time", justify="right", min_width=9)
 
     for name, server in stats.get("per_server", {}).items():
         # Status indicator
@@ -119,63 +119,61 @@ def create_flow_diagram(stats: dict) -> Panel:
         return Panel(Text("Loading...", style="dim"), title="Request Flow", border_style="dim")
 
     queue_size = stats.get("current_queue_size", 0)
-
-    # Build the flow diagram
-    lines = []
-
-    # Clients section
-    lines.append(Text("     ┌─────────────┐", style="cyan"))
-    lines.append(Text("     │   CLIENTS   │", style="bold cyan"))
-    lines.append(Text("     └──────┬──────┘", style="cyan"))
-    lines.append(Text("            │", style="dim"))
-    lines.append(Text("            ▼", style="bold white"))
-
-    # Queue section with dynamic indicator
-    queue_color = "green" if queue_size == 0 else "yellow" if queue_size < 10 else "red"
-
-    lines.append(Text("     ┌─────────────┐", style=queue_color))
-    lines.append(Text(f"     │  QUEUE [{queue_size:3d}] │", style=f"bold {queue_color}"))
-    lines.append(Text("     └──────┬──────┘", style=queue_color))
-    lines.append(Text("            │", style="dim"))
-
-    # Load balancer
-    lines.append(Text("     ┌──────┴──────┐", style="magenta"))
-    lines.append(Text("     │ LOAD BALANCE│", style="bold magenta"))
-    lines.append(Text("     └──────┬──────┘", style="magenta"))
-
-    # Servers - dynamic layout for any number
     per_server = stats.get("per_server", {})
     server_names = list(per_server.keys())
     num_servers = len(server_names)
 
+    lines = []
+
+    # All elements aligned to a common center point (position 30 in a 60-char ref width)
+    ref_w = 60
+    center = ref_w // 2
+    box_w = 15  # width of ┌─────────────┐
+    bp = " " * (center - box_w // 2)  # box left padding
+    cp = " " * center  # center pipe padding
+
+    # Clients section
+    lines.append(Text(f"{bp}┌─────────────┐", style="cyan"))
+    lines.append(Text(f"{bp}│   CLIENTS   │", style="bold cyan"))
+    lines.append(Text(f"{bp}└──────┬──────┘", style="cyan"))
+    lines.append(Text(f"{cp}│", style="dim"))
+    lines.append(Text(f"{cp}▼", style="bold white"))
+
+    # Queue section
+    queue_color = "green" if queue_size == 0 else "yellow" if queue_size < 10 else "red"
+    lines.append(Text(f"{bp}┌─────────────┐", style=queue_color))
+    lines.append(Text(f"{bp}│  QUEUE [{queue_size:3d}] │", style=f"bold {queue_color}"))
+    lines.append(Text(f"{bp}└──────┬──────┘", style=queue_color))
+    lines.append(Text(f"{cp}│", style="dim"))
+
+    # Load balancer
+    lines.append(Text(f"{bp}┌──────┴──────┐", style="magenta"))
+    lines.append(Text(f"{bp}│ LOAD BALANCE│", style="bold magenta"))
+    lines.append(Text(f"{bp}└──────┬──────┘", style="magenta"))
+
     if num_servers == 0:
-        lines.append(Text("            │", style="dim"))
-        lines.append(Text("      No servers", style="dim red"))
+        lines.append(Text(f"{cp}│", style="dim"))
+        lines.append(Text(f"{' ' * (center - 5)}No servers", style="dim red"))
     else:
-        # Create branching lines
-        lines.append(Text("            │", style="dim"))
+        lines.append(Text(f"{cp}│", style="dim"))
 
-        # Build server boxes dynamically
-        # Calculate width needed
-        box_width = 7  # "│SRV-X│" width
-        spacing = 1
-        total_width = num_servers * box_width + (num_servers - 1) * spacing
+        # Server boxes - 8 chars per column, centered on same center point
+        col_w = 8
+        pad = " " * max(0, (ref_w - num_servers * col_w) // 2)
 
-        # Arrows line
+        # Arrows line - ▼ at position 4 to align with box center
         arrow_line = Text()
-        arrows = "  ▼  " * num_servers
-        arrow_line.append(arrows.center(60), style="bold white")
+        arrow_line.append(pad + "    ▼   " * num_servers, style="bold white")
         lines.append(arrow_line)
 
         # Top border of boxes
         top_line = Text()
-        top_parts = " ┌─────┐" * num_servers
-        top_line.append(top_parts.center(60), style="white")
+        top_line.append(pad + " ┌─────┐" * num_servers, style="white")
         lines.append(top_line)
 
         # Server labels with colors
         label_line = Text()
-        label_line.append(" " * ((60 - num_servers * 8) // 2))  # centering
+        label_line.append(pad)
         for i, name in enumerate(server_names):
             server = per_server.get(name, {})
             state = server.get("state", "unknown")
@@ -185,29 +183,28 @@ def create_flow_diagram(stats: dict) -> Panel:
 
         # Bottom border of boxes
         bottom_line = Text()
-        bottom_parts = " └─────┘" * num_servers
-        bottom_line.append(bottom_parts.center(60), style="white")
+        bottom_line.append(pad + " └─────┘" * num_servers, style="white")
         lines.append(bottom_line)
 
         # Status indicators (request IDs or state)
         status_line = Text()
-        status_line.append(" " * ((60 - num_servers * 8) // 2))  # centering
+        status_line.append(pad)
         for name in server_names:
             server = per_server.get(name, {})
             state = server.get("state", "unknown")
             req_id = server.get("current_request_id")
             if req_id:
-                status_line.append(f" [{req_id[:5]}] ", style="yellow")
+                status_line.append(f"[{req_id[:4]}]".center(col_w), style="yellow")
             elif state == "idle":
-                status_line.append("  IDLE  ", style="dim green")
+                status_line.append("IDLE".center(col_w), style="dim green")
             elif state == "unhealthy":
-                status_line.append("  DOWN  ", style="dim red")
+                status_line.append("DOWN".center(col_w), style="dim red")
             else:
-                status_line.append("   ──   ", style="dim")
+                status_line.append("──".center(col_w), style="dim")
         lines.append(status_line)
 
     content = Text("\n").join(lines)
-    return Panel(Align.center(content), title="[bold blue]📊 Request Flow", border_style="blue", height=18)
+    return Panel(content, title="[bold blue]📊 Request Flow", border_style="blue")
 
 
 def create_stats_panel(stats: dict) -> Panel:
@@ -250,7 +247,7 @@ def create_request_log_panel() -> Panel:
             lines.append(entry)
         content = Text("\n").join(lines)
 
-    return Panel(content, title="[bold cyan]📝 Request Log", border_style="cyan", height=14)
+    return Panel(content, title="[bold cyan]📝 Request Log", border_style="cyan")
 
 
 def create_event_log_panel() -> Panel:
@@ -263,7 +260,7 @@ def create_event_log_panel() -> Panel:
             lines.append(entry)
         content = Text("\n").join(lines)
 
-    return Panel(content, title="[bold yellow]⚡ Events", border_style="yellow", height=10)
+    return Panel(content, title="[bold yellow]⚡ Events", border_style="yellow")
 
 
 def create_layout() -> Layout:
@@ -273,7 +270,7 @@ def create_layout() -> Layout:
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="body"),
-        Layout(name="footer", size=12),
+        Layout(name="footer", size=16),
     )
 
     layout["body"].split_row(
@@ -370,6 +367,10 @@ async def monitor_service(base_url: str, refresh_rate: float = 0.5):
                                         entry.append("✓ ", style="bold green")
                                         entry.append(f"{name} ", style="bold white")
                                         entry.append("RECOVERED", style="green")
+                                    elif new_state == "idle":
+                                        entry.append("✓ ", style="bold green")
+                                        entry.append(f"{name} ", style="bold white")
+                                        entry.append("completed", style="green")
                                     elif new_state == "busy":
                                         entry.append("● ", style="bold yellow")
                                         entry.append(f"{name} ", style="bold white")
